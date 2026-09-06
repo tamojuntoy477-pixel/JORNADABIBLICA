@@ -1,0 +1,41 @@
+name: Publish Monoposto 2026 XAPK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/publish-monoposto-xapk.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      ARTIFACT_ID: '9998558727'
+      TAG: monoposto-6.74-2026-logo
+    steps:
+      - name: Download built XAPK artifact
+        run: |
+          gh api -H 'Accept: application/vnd.github+json' \
+            "/repos/$REPO/actions/artifacts/$ARTIFACT_ID/zip" > artifact.zip
+          unzip -q artifact.zip
+          test -f Monoposto_6.74_2026_logo_MOD_FINAL.xapk
+          ls -lh Monoposto_6.74_2026_logo_MOD_FINAL.xapk
+
+      - name: Publish direct-download XAPK
+        run: |
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" Monoposto_6.74_2026_logo_MOD_FINAL.xapk --repo "$REPO" --clobber
+          else
+            gh release create "$TAG" Monoposto_6.74_2026_logo_MOD_FINAL.xapk \
+              --repo "$REPO" \
+              --title 'Monoposto 6.74 - Logo 2026 MOD' \
+              --notes 'Monoposto 6.74 armeabi-v7a com ícone 2026. APK base e splits assinados com o mesmo certificado.'
+          fi
