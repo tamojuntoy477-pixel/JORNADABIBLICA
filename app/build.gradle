@@ -1,16 +1,14 @@
-plugins {
-    id 'com.android.application'
-}
+plugins { id 'com.android.application' }
 
 android {
-    namespace 'com.nox.jornadabiblica'
+    namespace 'com.nox.clips'
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.nox.jornadabiblica"
-        minSdk 23
+        applicationId "com.nox.clips"
+        minSdk 24
         targetSdk 35
-        versionCode 4
-        versionName "2.1"
+        versionCode 1
+        versionName "1.0"
     }
 }
