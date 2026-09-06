@@ -1,0 +1,14 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.nox.monopostocareer'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.nox.monopostocareer'
+        minSdk 23
+        targetSdk 35
+        versionCode 2
+        versionName '0.2-career'
+    }
+}
