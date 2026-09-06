@@ -1,0 +1,156 @@
+lass="btn primary">CONTINUAR</button></div></div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+const $=id=>document.getElementById(id);
+const ASSET='https://raw.githubusercontent.com/ahacker-1/apex-formula-2026/main/';
+const URLS={
+ car:ASSET+'assets/f1car-2026.glb',
+ asphalt:ASSET+'textures/asphalt.png',
+ grass:ASSET+'textures/grass.png',
+ crowd:ASSET+'textures/crowd.png',
+ facadeDay:ASSET+'textures/facade-day.png',
+ facadeNight:ASSET+'textures/facade-night.png',
+ tree:ASSET+'textures/tree-broadleaf.png'
+};
+
+let renderer,scene,camera,clock,curve,trackLength,sun,baseCar=null,textures={},player=null,rain=null;
+let state=null,ai=[],bestLap=null,careerMode=false,camMode=0;
+const camNames=['CHASE','COCKPIT','TV'];
+const keys={left:0,right:0,gas:0,brake:0,ers:0,drs:0};
+
+const careerCalendar=[
+ {name:'GP Costa Azul',track:'coast',weather:'clear',laps:3},
+ {name:'GP Vale Verde',track:'forest',weather:'sunset',laps:3},
+ {name:'GP Cidade Neon',track:'city',weather:'night',laps:5},
+ {name:'GP Costa Azul',track:'coast',weather:'rain',laps:5},
+ {name:'GP Vale Verde',track:'forest',weather:'clear',laps:5},
+ {name:'Final Cidade Neon',track:'city',weather:'sunset',laps:8}
+];
+function getCareer(){return JSON.parse(localStorage.getItem('noxV18Career')||'{"season":1,"round":1,"points":0,"money":250000,"wins":0,"bestFinish":99}')}
+function putCareer(c){localStorage.setItem('noxV18Career',JSON.stringify(c))}
+function renderCareer(){
+ const c=getCareer(),r=careerCalendar[(c.round-1)%careerCalendar.length];
+ $('careerSeason').textContent=c.season;$('careerRound').textContent=c.round+'/'+careerCalendar.length;
+ $('careerPoints').textContent=c.points;$('careerWins').textContent=c.wins;
+ $('careerMoney').textContent='$ '+Number(c.money).toLocaleString('pt-BR');
+ $('careerRaceName').textContent=r.name;
+ const w={clear:'Ensolarado',sunset:'Pôr do sol',rain:'Chuva',night:'Noite'}[r.weather];
+ $('careerRaceInfo').textContent=w+' • '+r.laps+' voltas';
+}
+function openCareer(){renderCareer();$('menu').style.display='none';$('careerPanel').style.display='block'}
+function closeCareer(){$('careerPanel').style.display='none';$('menu').style.display='flex'}
+async function startCareerRound(){
+ const c=getCareer(),r=careerCalendar[(c.round-1)%careerCalendar.length];
+ $('track').value=r.track;$('weather').value=r.weather;$('laps').value=String(r.laps);
+ $('careerPanel').style.display='none';await start(true);
+}
+
+
+['left','right','gas','brake','ers','drs'].forEach(k=>{
+ const b=$(k);b.onpointerdown=e=>{e.preventDefault();keys[k]=1};
+ b.onpointerup=b.onpointerleave=b.onpointercancel=e=>{e.preventDefault();keys[k]=0};
+});
+
+function fmt(ms){const m=Math.floor(ms/60000),s=Math.floor(ms/1000)%60,mi=Math.floor(ms%1000);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+String(mi).padStart(3,'0')}
+function radioMsg(t){$('radio').textContent='🎧 '+t;$('radio').style.opacity=1;setTimeout(()=>$('radio').style.opacity=0,1400)}
+function showGame(v){$('menu').style.display=v?'none':'flex';$('hud').style.display=v?'block':'none';$('controls').style.display=v?'flex':'none';$('credit').style.display=v?'block':'none';['back','camBtn','audioBtn'].forEach(id=>$(id).style.display=v?'block':'none')}
+function mat(color,rough=.5,metal=.05){return new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal})}
+function mesh(g,m,cast=true,receive=true){const o=new THREE.Mesh(g,m);o.castShadow=cast;o.receiveShadow=receive;return o}
+
+function initRenderer(){
+ if(renderer)return;
+ renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+ const q=$('quality').value;renderer.setPixelRatio(q==='high'?Math.min(devicePixelRatio,1.5):q==='medium'?1.2:1);
+ renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=q!=='low';renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+ renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;renderer.outputColorSpace=THREE.SRGBColorSpace;
+ $('stage').appendChild(renderer.domElement);scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(59,innerWidth/innerHeight,.1,900);clock=new THREE.Clock();
+ addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()});
+}
+
+function loadTexture(url){
+ return new Promise((resolve,reject)=>new THREE.TextureLoader().load(url,t=>{t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;resolve(t)},undefined,reject));
+}
+async function preload(){
+ if(baseCar)return;
+ $('loading').style.display='flex';
+ try{
+  const loader=new GLTFLoader();
+  $('loadText').textContent='Carregando o modelo GLB...';
+  const gltf=await new Promise((resolve,reject)=>loader.load(URLS.car,resolve,undefined,reject));
+  baseCar=gltf.scene;
+  baseCar.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
+  $('loadText').textContent='Carregando asfalto, grama e cenário...';
+  const [asphalt,grass,crowd,facadeDay,facadeNight,tree]=await Promise.all([
+    loadTexture(URLS.asphalt),loadTexture(URLS.grass),loadTexture(URLS.crowd),loadTexture(URLS.facadeDay),loadTexture(URLS.facadeNight),loadTexture(URLS.tree)
+  ]);
+  textures={asphalt,grass,crowd,facadeDay,facadeNight,tree};
+ }catch(e){
+  console.error(e);$('loading').style.display='none';
+  alert('Não consegui baixar o carro 3D. Confira a internet e tente de novo.');
+  throw e;
+ }
+ $('loading').style.display='none';
+}
+function cloneCar(colorHex){
+ const root=baseCar.clone(true);
+ root.traverse(o=>{
+  if(!o.isMesh||!o.material)return;
+  const mats=Array.isArray(o.material)?o.material:[o.material];
+  const cloned=mats.map(m=>{
+    const n=m.clone();
+    if(n.name==='body')n.color.setHex(colorHex);
+    if(n.name==='helmet_trim')n.color.setHex(colorHex);
+    if(n.name==='accent')n.color.setHex(0xe7edf3);
+    n.needsUpdate=true;return n;
+  });
+  o.material=Array.isArray(o.material)?cloned:cloned[0];
+  o.castShadow=true;o.receiveShadow=true;
+ });
+ root.scale.setScalar(1.08);
+ return root;
+}
+
+function makeTrackPoints(track){
+ if(track==='city')return [[-42,0,-98],[20,0,-116],[90,1,-76],[114,2,-6],[75,1,72],[15,0,112],[-65,0,104],[-113,1,48],[-107,0,-42],[-72,0,-92]];
+ if(track==='forest')return [[-30,0,-116],[50,2,-110],[108,8,-58],[112,12,24],[62,8,92],[-10,4,116],[-88,7,86],[-118,5,18],[-101,1,-62],[-67,0,-100]];
+ return [[-30,0,-118],[52,1,-112],[111,4,-60],[112,6,30],[58,4,103],[-20,1,118],[-92,3,82],[-118,1,16],[-101,0,-58],[-68,0,-101]];
+}
+function spriteTree(tex,scale=8){
+ const m=new THREE.SpriteMaterial({map:tex,transparent:true,alphaTest:.22});
+ const s=new THREE.Sprite(m);s.scale.set(scale,scale,1);return s;
+}
+function buildWorld(track,weather){
+ while(scene.children.length)scene.remove(scene.children[0]);
+ const bg=weather==='night'?0x07101b:weather==='rain'?0x859198:weather==='sunset'?0xd38d6e:0xa7d8ef;
+ scene.background=new THREE.Color(bg);scene.fog=new THREE.Fog(bg,105,390);
+ scene.add(new THREE.HemisphereLight(weather==='night'?0x6d84ad:0xe8f8ff,weather==='night'?0x08090c:0x344c30,weather==='night'?.65:1.2));
+
+ sun=new THREE.DirectionalLight(weather==='sunset'?0xffb26f:0xffffff,weather==='night'?.55:2.7);sun.position.set(62,118,-46);sun.castShadow=true;
+ sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-72;sun.shadow.camera.right=72;sun.shadow.camera.top=72;sun.shadow.camera.bottom=-72;sun.shadow.camera.near=1;sun.shadow.camera.far=260;scene.add(sun);scene.add(sun.target);
+
+ curve=new THREE.CatmullRomCurve3(makeTrackPoints(track).map(p=>new THREE.Vector3(...p)),true,'catmullrom',.1);trackLength=curve.getLength();
+
+ const seg=620,half=7.35,verts=[],norms=[],uvs=[],idx=[];
+ for(let i=0;i<=seg;i++){
+  const t=i/seg,p=curve.getPointAt(t),tan=curve.getTangentAt(t).normalize(),side=new THREE.Vector3(-tan.z,0,tan.x).normalize();
+  const L=p.clone().add(side.clone().multiplyScalar(half)),R=p.clone().add(side.clone().multiplyScalar(-half));
+  verts.push(L.x,L.y+.05,L.z,R.x,R.y+.05,R.z);norms.push(0,1,0,0,1,0);uvs.push(0,i/15,1,i/15);
+  if(i<seg){const a=i*2,b=a+1,c=a+2,d=a+3;idx.push(a,c,b,b,c,d)}
+ }
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(norms,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(idx);g.computeVertexNormals();
+
+ const asphalt=textures.asphalt.clone();asphalt.needsUpdate=true;asphalt.wrapS=asphalt.wrapT=THREE.RepeatWrapping;asphalt.repeat.set(1,52);
+ const roadMat=new THREE.MeshStandardMaterial({map:asphalt,color:weather==='rain'?0x777d80:0xffffff,roughness:weather==='rain'?.20:.82,metalness:.05,side:THREE.DoubleSide});
+ scene.add(mesh(g,roadMat,false,true));
+
+ const grass=textures.grass.clone();grass.needsUpdate=true;grass.wrapS=grass.wrapT=THREE.RepeatWrapping;grass.repeat.set(28,28);
+ const ground=mesh(new THREE.CircleGeometry(350,128),new THREE.MeshStandardMaterial({map:grass,color:track==='city'?0x657077:0xffffff,roughness:.95,side:THREE.DoubleSide}),false,true);
+ ground.rotation.x=-Math.PI/2;ground.position.y=-.48;scene.add(ground);
+
+ // 3D curbs + asphalt shoulders
+ for(let i=0;i<seg;i+=3){
+  const t=(i+.5)/seg,p=curve.getPointAt(t),tan=curve.getTangentAt(t).normalize(),side=new THREE.Vector3(-tan.z,0,tan.x).normalize(),angle=Math.atan2(tan.x,tan.z);
+  
