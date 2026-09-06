@@ -1,0 +1,9 @@
+>b.s-a.s);
+ $('pos').textContent=ranks.findIndex(x=>x.n==='N')+1;$('lap').textContent=Math.min(state.total,state.lap);$('speed').textContent=Math.round(state.speed*3.6);$('gear').textContent=state.speed<2?'N':Math.min(8,Math.max(1,Math.ceil(state.speed/12)));
+ $('timer').textContent=fmt(performance.now()-state.start).slice(0,5);$('best').textContent=bestLap?fmt(bestLap).slice(0,5):'--:--';
+ $('ersText').textContent=Math.round(state.ers)+'%';$('ersFill').style.width=state.ers+'%';$('tireText').textContent=Math.round(state.tire)+'%';$('tireFill').style.width=state.tire+'%';$('damageText').textContent=Math.round(state.damage)+'%';$('damageFill').style.width=state.damage+'%';$('drs').textContent=drs?'DRS ON':'DRS';
+}
+function loop(){if(!state||!state.run)return;const dt=Math.min(.033,clock.getDelta());physics(dt);renderer.render(scene,camera);requestAnimationFrame(loop)}
+</script>
+</body>
+</html>
