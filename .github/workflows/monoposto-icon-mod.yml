@@ -1,0 +1,210 @@
+name: Build Monoposto 2026 XAPK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/monoposto-icon-mod.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq jq unzip zip
+          python3 -m pip install --quiet pillow
+          curl -L --fail --retry 3 -o apktool.jar https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+          echo "ANDROID_HOME=${ANDROID_HOME}"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)
+          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)
+          test -x "$APKSIGNER"
+          test -x "$ZIPALIGN"
+          echo "APKSIGNER=$APKSIGNER" >> "$GITHUB_ENV"
+          echo "ZIPALIGN=$ZIPALIGN" >> "$GITHUB_ENV"
+
+      - name: Download exact Monoposto 6.74 armeabi-v7a XAPK
+        run: |
+          curl -L --fail --retry 5 --retry-delay 3 \
+            'https://d.apkpure.net/b/XAPK/com.gabama.monopostolite?nc=armeabi-v7a&sv=23&versionCode=881' \
+            -o original.xapk
+          echo '36039b6391c034dd091ca769f2d4d3becc6d798a  original.xapk' | sha1sum -c -
+          mkdir xapk
+          unzip -q original.xapk -d xapk
+          test -f xapk/com.gabama.monopostolite.apk
+          test -f xapk/UnityDataAssetPack.apk
+          test -f xapk/config.armeabi_v7a.apk
+
+      - name: Generate 2026 icon
+        run: |
+          cat > make_icon.py <<'PY'
+          from PIL import Image, ImageDraw, ImageFont
+          W=1024
+          im=Image.new('RGB',(W,W),(245,245,245))
+          d=ImageDraw.Draw(im)
+          # soft shadow
+          d.ellipse((120,650,904,785), fill=(215,215,215))
+          red=(242,58,52); dark=(16,32,42); black=(12,20,28)
+          # rear wing
+          d.rounded_rectangle((300,145,724,195),20,fill=red)
+          d.rectangle((485,90,540,160),fill=dark)
+          d.rectangle((445,105,580,130),fill=dark)
+          # rear tyres
+          d.rounded_rectangle((160,240,310,520),35,fill=dark)
+          d.rounded_rectangle((714,240,864,520),35,fill=dark)
+          # front tyres
+          d.rounded_rectangle((95,380,260,700),45,fill=dark)
+          d.rounded_rectangle((764,380,929,700),45,fill=dark)
+          # body / nose
+          d.polygon([(410,210),(614,210),(675,400),(610,690),(414,690),(349,400)],fill=red)
+          d.rounded_rectangle((380,240,644,340),45,fill=red)
+          # cockpit
+          d.ellipse((445,170,579,315),fill=black)
+          # halo
+          d.arc((395,200,629,380),190,350,fill=(255,120,115),width=24)
+          d.line((512,245,512,410),fill=(255,120,115),width=20)
+          # sidepods
+          d.rounded_rectangle((250,320,425,465),30,fill=red)
+          d.rounded_rectangle((599,320,774,465),30,fill=red)
+          d.rounded_rectangle((285,355,405,395),18,fill=black)
+          d.rounded_rectangle((619,355,739,395),18,fill=black)
+          # suspension
+          for pts in [((250,440),(405,540)),((774,440),(619,540)),((245,585),(410,510)),((779,585),(614,510))]:
+              d.line(pts,fill=black,width=18)
+          # front wing
+          d.rounded_rectangle((115,605,909,680),28,fill=red)
+          d.arc((120,565,510,720),185,345,fill=(190,35,32),width=22)
+          d.arc((514,565,904,720),195,355,fill=(190,35,32),width=22)
+          # blue year block
+          blue=(53,91,201)
+          d.rectangle((0,760,1024,1024),fill=blue)
+          try:
+              font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',210)
+          except:
+              font=ImageFont.load_default()
+          text='2026'
+          box=d.textbbox((0,0),text,font=font)
+          tw=box[2]-box[0]; th=box[3]-box[1]
+          d.text(((1024-tw)/2,760+(264-th)/2-20),text,font=font,fill='white')
+          im.save('icon2026.png', optimize=True)
+          PY
+          python3 make_icon.py
+          cp icon2026.png xapk/icon.png
+
+      - name: Decode base APK
+        run: |
+          java -jar apktool.jar d -f xapk/com.gabama.monopostolite.apk -o decoded
+          grep -n '<application' decoded/AndroidManifest.xml | head -1 || true
+
+      - name: Replace launcher icon resources
+        run: |
+          python3 - <<'PY'
+          import re, os, glob, shutil
+          from PIL import Image
+          manifest=open('decoded/AndroidManifest.xml',encoding='utf-8').read()
+          names=set()
+          for attr in ('icon','roundIcon'):
+              m=re.search(r'android:'+attr+r'="@(?:mipmap|drawable)/([^"/]+)"',manifest)
+              if m: names.add(m.group(1))
+          if not names:
+              names={'ic_launcher','app_icon'}
+          print('Icon resource names:', sorted(names))
+          src=Image.open('icon2026.png').convert('RGBA')
+          changed=[]
+          for name in names:
+              paths=glob.glob(f'decoded/res/**/{name}.*',recursive=True)
+              for p in paths:
+                  ext=os.path.splitext(p)[1].lower()
+                  os.makedirs(os.path.dirname(p),exist_ok=True)
+                  if ext=='.xml':
+                      # Adaptive icon for Android 8+. Keep the same resource name but point it to our bitmap.
+                      open(p,'w',encoding='utf-8').write('''<?xml version="1.0" encoding="utf-8"?>\n<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n    <background android:drawable="@android:color/white" />\n    <foreground android:drawable="@drawable/nox_icon_2026" />\n</adaptive-icon>\n''')
+                      changed.append(p)
+                  elif ext in ('.png','.webp','.jpg','.jpeg'):
+                      # infer a sensible launcher size from density folder
+                      folder=os.path.basename(os.path.dirname(p))
+                      size=192
+                      for key,val in [('xxxhdpi',192),('xxhdpi',144),('xhdpi',96),('hdpi',72),('mdpi',48),('ldpi',36)]:
+                          if key in folder: size=val; break
+                      out=src.resize((size,size),Image.Resampling.LANCZOS)
+                      fmt='PNG' if ext=='.png' else ('WEBP' if ext=='.webp' else 'JPEG')
+                      if fmt=='JPEG': out=out.convert('RGB')
+                      out.save(p,format=fmt,quality=95)
+                      changed.append(p)
+          # Bitmap used by adaptive icon XML.
+          os.makedirs('decoded/res/drawable-nodpi',exist_ok=True)
+          src.save('decoded/res/drawable-nodpi/nox_icon_2026.png','PNG')
+          print('Changed icon files:')
+          print('\n'.join(changed) if changed else '(none matched directly; adaptive bitmap added)')
+          if not changed:
+              raise SystemExit('Could not locate launcher icon resources')
+          PY
+
+      - name: Rebuild APK
+        run: |
+          java -jar apktool.jar b decoded -o base-unsigned.apk
+          "$ZIPALIGN" -f -p 4 base-unsigned.apk base-aligned.apk
+
+      - name: Create signing key and sign every split with the same certificate
+        run: |
+          keytool -genkeypair -noprompt \
+            -keystore mod.jks -storepass android -keypass android \
+            -alias modkey -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname 'CN=Monoposto 2026 MOD,O=NOX,C=BR'
+
+          "$APKSIGNER" sign --ks mod.jks --ks-pass pass:android --key-pass pass:android \
+            --out xapk/com.gabama.monopostolite.apk base-aligned.apk
+
+          for f in UnityDataAssetPack.apk config.armeabi_v7a.apk; do
+            "$ZIPALIGN" -f -p 4 "xapk/$f" "aligned-$f"
+            "$APKSIGNER" sign --ks mod.jks --ks-pass pass:android --key-pass pass:android \
+              --out "xapk/$f" "aligned-$f"
+          done
+
+          for f in xapk/com.gabama.monopostolite.apk xapk/UnityDataAssetPack.apk xapk/config.armeabi_v7a.apk; do
+            "$APKSIGNER" verify --verbose --print-certs "$f"
+          done
+
+      - name: Update XAPK manifest and package final file
+        run: |
+          python3 - <<'PY'
+          import json, os
+          p='xapk/manifest.json'
+          data=json.load(open(p,encoding='utf-8'))
+          data['icon']='icon.png'
+          total=0
+          for f in ['com.gabama.monopostolite.apk','UnityDataAssetPack.apk','config.armeabi_v7a.apk']:
+              total += os.path.getsize('xapk/'+f)
+          data['total_size']=total
+          with open(p,'w',encoding='utf-8') as out:
+              json.dump(data,out,ensure_ascii=False,separators=(',',':'))
+          PY
+          cd xapk
+          zip -9 -q ../Monoposto_6.74_2026_logo_MOD_FINAL.xapk \
+            manifest.json icon.png com.gabama.monopostolite.apk UnityDataAssetPack.apk config.armeabi_v7a.apk
+          cd ..
+          ls -lh Monoposto_6.74_2026_logo_MOD_FINAL.xapk
+
+      - name: Upload final XAPK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Monoposto-6.74-2026-logo-MOD-FINAL
+          path: Monoposto_6.74_2026_logo_MOD_FINAL.xapk
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
