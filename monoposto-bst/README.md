@@ -1,0 +1,1 @@
+Build temporário para preparar a versão BST do Monoposto 6.74 sem alterar o projeto principal.
