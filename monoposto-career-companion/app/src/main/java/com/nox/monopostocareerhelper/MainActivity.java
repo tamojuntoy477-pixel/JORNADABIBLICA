@@ -1,6 +1,7 @@
 package com.nox.monopostocareerhelper;
 
 import android.app.AlertDialog;
+import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -14,9 +15,6 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import androidx.annotation.Nullable;
-import android.app.Activity;
 
 public class MainActivity extends Activity {
     private static final String PREFS = "career";
@@ -33,7 +31,7 @@ public class MainActivity extends Activity {
     private TextView seasonText, roundText, pointsText, winsText, moneyText, nextRaceText, recordText;
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         setContentView(buildUi());
