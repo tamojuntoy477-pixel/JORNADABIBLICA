@@ -22,6 +22,7 @@ jobs:
       - name: Rebuild original game file
         run: |
           mkdir -p monoposto-career/app/src/main/assets
+          truncate -s -1 monoposto-career/source/index.part1
           cat monoposto-career/source/index.part0 monoposto-career/source/index.part1 monoposto-career/source/index.part2 monoposto-career/source/index.part3 > monoposto-career/app/src/main/assets/index.html
           echo "fd310d5f53dae948313d605256e61d8e7b80e054853042a2382cec4bf553c205  monoposto-career/app/src/main/assets/index.html" | sha256sum -c -
 
