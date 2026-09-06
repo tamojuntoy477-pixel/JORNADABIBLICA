@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#05070a">
+<title>NOX Formula 27 V18</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070a;color:#fff;font-family:Inter,Arial,sans-serif}
+button,select{font:inherit}
+#stage{position:fixed;inset:0;background:#08111a}
+#stage canvas{width:100%;height:100%;display:block}
+#menu,#loading,#finish{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center}
+#menu{background:radial-gradient(circle at 50% 0,#3a6d89 0,#162a38 42%,#05070a 100%)}
+.panel{width:min(94vw,760px);max-height:94vh;overflow:auto;background:#081018ef;border:1px solid #ffffff18;border-radius:26px;padding:18px;box-shadow:0 35px 120px #000}
+.logo{font-size:40px;font-weight:1000;letter-spacing:-1.4px}.logo span{color:#14d7ff}.sub{opacity:.65;margin-bottom:13px}
+.hero{height:185px;border-radius:20px;overflow:hidden;position:relative;background:
+linear-gradient(100deg,rgba(0,0,0,.75),rgba(0,0,0,.08)),
+radial-gradient(circle at 76% 34%,#79c6e7 0,#27556e 38%,#0c151d 74%);border:1px solid #ffffff18}
+.heroText{position:absolute;left:17px;bottom:17px}.heroText b{font-size:28px}.heroText p{margin:4px 0 0;color:#d6dee5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
+label{font-size:11px;color:#aeb8c2}select{width:100%;height:44px;margin-top:5px;border:0;border-radius:12px;background:#19232d;color:#fff;padding:0 10px}
+.btn{width:100%;height:50px;border:0;border-radius:14px;font-weight:1000;margin-top:9px}.primary{background:linear-gradient(90deg,#08c5e9,#24e4ff);color:#00151c}.secondary{background:#161e27;color:#fff;border:1px solid #ffffff14}
+.note{font-size:12px;color:#8f9aa4;margin-top:8px}
+
+#loading{z-index:90;display:none;background:#04070bf2}
+.loadbox{width:min(84vw,420px);text-align:center;background:#0c141d;border:1px solid #ffffff18;border-radius:22px;padding:22px}
+.spinner{width:48px;height:48px;border:5px solid #ffffff18;border-top-color:#13d8ff;border-radius:50%;margin:0 auto 15px;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+
+#hud{position:fixed;inset:0;z-index:20;display:none;pointer-events:none}
+.hudTop{display:flex;justify-content:space-between;gap:5px;padding:6px}
+.hbox{background:#05080cbd;border:1px solid #ffffff18;border-radius:11px;padding:6px 8px;font-weight:900;min-width:82px;backdrop-filter:blur(6px)}
+.big{font-size:20px}.small{font-size:9px;color:#c3ccd4}
+#telemetry{position:fixed;right:7px;top:58px;width:128px;background:#05080cc5;border:1px solid #ffffff18;border-radius:11px;padding:7px;font-size:10px;font-weight:900;backdrop-filter:blur(6px)}
+.bar{height:5px;background:#ffffff18;border-radius:20px;overflow:hidden;margin:3px 0 6px}.fill{height:100%;background:#12d7ff}.yellow{background:#ffd43b}.red{background:#ff435b}
+#controls{position:fixed;left:0;right:0;bottom:7px;z-index:30;display:none;justify-content:space-between;align-items:flex-end;padding:0 7px;pointer-events:none}
+.grp{display:flex;gap:7px;pointer-events:auto}
+.ctrl{width:58px;height:58px;border-radius:17px;border:1px solid #ffffff22;background:#0b1219c8;color:#fff;font-weight:1000;font-size:21px;backdrop-filter:blur(8px)}
+#gas{height:88px;background:#107a46d9}#brake{height:76px;background:#a82739d9}#ers,#drs{width:60px;height:60px;font-size:10px}#ers{background:#087fa9d9}#drs{background:#6748c9d9}
+#back,#camBtn,#audioBtn{position:fixed;left:7px;z-index:35;border:1px solid #ffffff1f;border-radius:10px;background:#05080cc9;color:#fff;font-weight:900;padding:7px 9px;font-size:11px;display:none}
+#back{top:58px}#camBtn{top:92px}#audioBtn{top:126px}
+#radio{position:fixed;left:50%;top:15%;transform:translateX(-50%);z-index:35;background:#03070de7;border:1px solid #ffffff18;border-radius:12px;padding:8px 11px;font-size:11px;font-weight:800;opacity:0;transition:.2s;white-space:nowrap}
+#finish{z-index:80;display:none;background:#04070bed}.result{width:min(90vw,420px);background:#101821;border:1px solid #2a3440;border-radius:22px;padding:22px;text-align:center}.result h1{font-size:60px;margin:7px 0}
+#credit{position:fixed;right:7px;bottom:7px;z-index:34;font-size:8px;color:#b6c1cb;background:#05080c99;padding:4px 6px;border-radius:7px;display:none}
+
+#careerPanel{position:fixed;inset:0;z-index:66;background:linear-gradient(145deg,#090d13,#111a24 48%,#081018);display:none;overflow:auto;padding:18px}
+#careerPanel .panel{max-width:620px;margin:0 auto}
+.careerStats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:13px 0}
+.careerCard{background:#0b1118;border:1px solid #273440;border-radius:12px;padding:11px}
+.careerCard small{display:block;color:#8795a2;font-size:10px;font-weight:900;letter-spacing:.7px}
+.careerCard b{display:block;margin-top:3px;font-size:19px}
+.careerRound{background:#0b1118;border:1px solid #273440;border-radius:12px;padding:12px;margin:11px 0}
+.careerRound strong{color:#16d5f3}
+
+@media(min-width:700px){.hbox{padding:8px 11px;min-width:110px}.big{font-size:28px}.small{font-size:11px}#telemetry{right:10px;top:70px;width:176px;font-size:12px}.ctrl{width:68px;height:68px}.ctrl#gas{height:100px}.ctrl#brake{height:84px}.ctrl#ers,.ctrl#drs{width:76px;height:76px;font-size:12px}#back{top:70px}#camBtn{top:110px}#audioBtn{top:150px}}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div id="menu"><div class="panel">
+ <div class="logo">NOX <span>FORMULA 27</span></div>
+ <div class="sub">V18 • GLB Car Upgrade</div>
+ <div class="hero"><div class="heroText"><b>AGORA É OUTRO CARRO</b><p>Esta versão usa um modelo 3D GLB esculpido, não blocos nem desenho 2D.</p></div></div>
+ <div class="grid">
+  <div><label>PISTA</label><select id="track"><option value="coast">Costa Azul</option><option value="forest">Vale Verde</option><option value="city">Cidade Neon</option></select></div>
+  <div><label>CLIMA</label><select id="weather"><option value="clear">Ensolarado</option><option value="sunset">Pôr do sol</option><option value="rain">Chuva</option><option value="night">Noite</option></select></div>
+  <div><label>VOLTAS</label><select id="laps"><option>3</option><option>5</option><option>8</option></select></div>
+  <div><label>QUALIDADE</label><select id="quality"><option value="high" selected>Alta</option><option value="medium">Média</option><option value="low">Leve</option></select></div>
+ </div>
+ <button id="quick" class="btn primary">CORRIDA V18</button>
+ <button id="career" class="btn secondary">MODO CARREIRA</button>
+ <div class="note">Precisa de internet ao abrir para carregar o modelo 3D e as texturas.</div>
+</div></div>
+
+
+<div id="careerPanel"><div class="panel">
+ <div class="logo">MODO <span>CARREIRA</span></div>
+ <div class="sub">TEMPORADA NOX FORMULA 27</div>
+ <div class="careerStats">
+  <div class="careerCard"><small>TEMPORADA</small><b id="careerSeason">1</b></div>
+  <div class="careerCard"><small>RODADA</small><b id="careerRound">1/6</b></div>
+  <div class="careerCard"><small>PONTOS</small><b id="careerPoints">0</b></div>
+  <div class="careerCard"><small>VITÓRIAS</small><b id="careerWins">0</b></div>
+  <div class="careerCard"><small>EQUIPE</small><b>NOX Racing</b></div>
+  <div class="careerCard"><small>CAIXA</small><b id="careerMoney">$ 250.000</b></div>
+ </div>
+ <div class="careerRound">
+  <small style="color:#8795a2;font-weight:900">PRÓXIMA CORRIDA</small>
+  <h2 id="careerRaceName" style="margin:5px 0 2px">Costa Azul</h2>
+  <div id="careerRaceInfo" class="sub">Ensolarado • 3 voltas</div>
+ </div>
+ <button id="careerStart" class="btn primary">INICIAR RODADA</button>
+ <button id="careerBack" class="btn secondary">VOLTAR</button>
+</div></div>
+
+<div id="loading"><div class="loadbox"><div class="spinner"></div><b>CARREGANDO CARRO 3D REAL...</b><p id="loadText" style="color:#aab5bf">Baixando modelo e texturas.</p></div></div>
+
+<div id="hud">
+ <div class="hudTop">
+  <div class="hbox">P <span id="pos" class="big">5</span>/5<br><span class="small">VOLTA <span id="lap">1</span>/<span id="lapTotal">3</span></span></div>
+  <div class="hbox" style="text-align:center"><span id="gear" class="big">N</span><br><span id="speed">0</span> <span class="small">KM/H</span></div>
+  <div class="hbox"><span id="timer">00:00</span><br><span class="small">BEST <span id="best">--:--</span></span></div>
+ </div>
+ <div id="telemetry">ERS <span id="ersText">100%</span><div class="bar"><div id="ersFill" class="fill"></div></div>PNEUS <span id="tireText">100%</span><div class="bar"><div id="tireFill" class="fill yellow"></div></div>DANO <span id="damageText">0%</span><div class="bar"><div id="damageFill" class="fill red"></div></div></div>
+</div>
+
+<button id="back">MENU</button><button id="camBtn">CAM: CHASE</button><button id="audioBtn">SOM: OFF</button><div id="radio"></div>
+<div id="controls">
+ <div class="grp"><button class="ctrl" id="left">◀</button><button class="ctrl" id="right">▶</button></div>
+ <div class="grp"><button class="ctrl" id="brake">▼</button><button class="ctrl" id="gas">▲</button><button class="ctrl" id="ers">ERS</button><button class="ctrl" id="drs">DRS</button></div>
+</div>
+<div id="credit">Car model/textures: APEX FORMULA 2026 • Apache-2.0</div>
+<div id="finish"><div class="result"><small>RESULTADO</small><h1 id="finishPos">P1</h1><p id="finishInfo"></p><button id="continue" c
