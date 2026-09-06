@@ -1,0 +1,54 @@
+name: Build Monoposto Career Only
+
+on:
+  push:
+    branches:
+      - monoposto-career-only
+    paths:
+      - 'monoposto-career/**'
+      - '.github/workflows/build-monoposto-career-only.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild original game file
+        run: |
+          mkdir -p monoposto-career/app/src/main/assets
+          cat monoposto-career/source/index.part0 monoposto-career/source/index.part1 monoposto-career/source/index.part2 monoposto-career/source/index.part3 > monoposto-career/app/src/main/assets/index.html
+          echo "fd310d5f53dae948313d605256e61d8e7b80e054853042a2382cec4bf553c205  monoposto-career/app/src/main/assets/index.html" | sha256sum -c -
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35
+        run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        working-directory: monoposto-career
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: monoposto-career-only-apk
+          path: monoposto-career/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
