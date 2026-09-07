@@ -1,0 +1,33 @@
+name: Build Painel XITTER APK
+
+on:
+  push:
+    branches: [ "painel-xitter-build" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Restore project
+        run: |
+          base64 -d painel-xitter-app.zip.b64 > PainelXitterApp.zip
+          unzip -q PainelXitterApp.zip
+      - name: Build APK
+        run: |
+          cd PainelXitterApp
+          gradle assembleDebug
+      - name: Rename APK
+        run: cp PainelXitterApp/app/build/outputs/apk/debug/app-debug.apk Painel-XITTER-NOX.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Painel-XITTER-NOX-APK
+          path: Painel-XITTER-NOX.apk
