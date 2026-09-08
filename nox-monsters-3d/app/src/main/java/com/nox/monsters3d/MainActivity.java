@@ -94,7 +94,7 @@ public class MainActivity extends Activity {
                     event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
                 moveX = 0f;
                 moveZ = 0f;
-                renderer.setMove(0f, 0f);
+                if (renderer != null) renderer.setMove(0f, 0f);
                 return true;
             }
             float dx = (event.getX() - joyCenterX) / (w / 2f);
@@ -106,7 +106,7 @@ public class MainActivity extends Activity {
             }
             moveX = dx;
             moveZ = dy;
-            renderer.setMove(moveX, moveZ);
+            if (renderer != null) renderer.setMove(moveX, moveZ);
             return true;
         });
 
@@ -125,7 +125,9 @@ public class MainActivity extends Activity {
         capParams.rightMargin = 34;
         capParams.bottomMargin = 28;
         root.addView(capture, capParams);
-        capture.setOnClickListener(v -> renderer.tryCapture());
+        capture.setOnClickListener(v -> {
+            if (renderer != null) renderer.tryCapture();
+        });
 
         TextView hint = new TextView(this);
         hint.setText("Analógico: mover");
@@ -144,8 +146,12 @@ public class MainActivity extends Activity {
 
     private void updateHud(int captured, int total, String text) {
         runOnUiThread(() -> {
-            hud.setText("NOX Monsters 3D   •   Capturados: " + captured + "/" + total);
-            if (text != null && !text.isEmpty()) message.setText(text);
+            if (hud != null) {
+                hud.setText("NOX Monsters 3D   •   Capturados: " + captured + "/" + total);
+            }
+            if (message != null && text != null && !text.isEmpty()) {
+                message.setText(text);
+            }
         });
     }
 
@@ -169,12 +175,12 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         hideSystemUi();
-        glView.onResume();
+        if (glView != null) glView.onResume();
     }
 
     @Override
     protected void onPause() {
-        glView.onPause();
+        if (glView != null) glView.onPause();
         super.onPause();
     }
 }
