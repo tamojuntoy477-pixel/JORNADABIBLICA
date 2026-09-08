@@ -6,6 +6,7 @@ import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 public class MainActivity extends Activity {
   private WebView webView;
@@ -22,6 +23,11 @@ public class MainActivity extends Activity {
     s.setDomStorageEnabled(true);
     s.setAllowFileAccess(true);
     webView.setWebChromeClient(new WebChromeClient());
+    webView.setWebViewClient(new WebViewClient() {
+      @Override public void onPageFinished(WebView view, String url) {
+        view.evaluateJavascript("document.getElementById('atk').onpointerdown=function(e){e.preventDefault();atk();};", null);
+      }
+    });
     setContentView(webView);
     webView.loadUrl("file:///android_asset/index.html");
   }
