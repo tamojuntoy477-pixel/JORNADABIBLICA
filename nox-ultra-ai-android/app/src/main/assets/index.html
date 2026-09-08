@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>NOX ULTRA AI</title>
+<style>
+:root{color-scheme:dark;--bg:#070814;--card:#111426;--card2:#181c33;--txt:#f7f7ff;--muted:#9ba4c8;--p:#7367ff;--p2:#a45cff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 90% 0,#241343 0,transparent 34%),radial-gradient(circle at 0 18%,#101c45 0,transparent 34%),var(--bg);font-family:Inter,system-ui,Arial;color:var(--txt);min-height:100vh}.app{max-width:780px;margin:auto;min-height:100vh;display:flex;flex-direction:column}.top{padding:22px 16px 12px;position:sticky;top:0;z-index:5;background:linear-gradient(#070814f5,#070814c7,transparent)}.brand{display:flex;align-items:center;gap:12px}.logo{width:45px;height:45px;border-radius:14px;display:grid;place-items:center;font-weight:950;font-size:19px;background:linear-gradient(135deg,var(--p),var(--p2));box-shadow:0 8px 30px #7367ff55}.title{font-size:19px;font-weight:850}.subtitle{color:var(--muted);font-size:12px;margin-top:2px}.panel{margin:8px 14px 0;padding:12px;border:1px solid #282d50;background:#0c0f20cc;border-radius:17px}.row{display:flex;gap:8px;flex-wrap:wrap}input,select,textarea,button{font:inherit}input,select{height:42px;border-radius:12px;border:1px solid #303658;background:#15192d;color:white;padding:0 11px}input{flex:1;min-width:190px}select{min-width:125px}.tiny{font-size:11px;color:var(--muted);margin:8px 2px 0}.chat{flex:1;padding:14px 14px 160px;display:flex;flex-direction:column;gap:12px}.msg{max-width:88%;padding:13px 14px;border-radius:18px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word}.user{align-self:flex-end;background:linear-gradient(135deg,#665cff,#8c54ff);border-bottom-right-radius:5px}.ai{align-self:flex-start;background:var(--card2);border:1px solid #2a3052;border-bottom-left-radius:5px}.error{align-self:center;background:#3a1622;color:#ffd9e0;border:1px solid #76253c}.composer{position:fixed;bottom:0;left:0;right:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#070814 20%);z-index:6}.composeInner{max-width:752px;margin:auto;padding:10px;background:#111426;border:1px solid #2a3050;border-radius:20px;box-shadow:0 12px 40px #0008}.composeInner textarea{width:100%;min-height:50px;max-height:150px;resize:none;border:0;outline:0;background:transparent;color:white;padding:8px;font-size:16px}.actions{display:flex;align-items:center;justify-content:space-between;gap:8px}.send,.read{border:0;border-radius:12px;height:42px;padding:0 15px;color:white;font-weight:800}.send{background:linear-gradient(135deg,var(--p),var(--p2))}.read{background:#232945;color:#cad1ff}.busy{opacity:.6;pointer-events:none}.chip{font-size:11px;color:#b9c0e9}.welcome{padding:6px 3px;color:#c7ccef}.welcome b{color:white}.dots{display:inline-flex;gap:4px}.dots i{width:6px;height:6px;background:#aab1d5;border-radius:50%;animation:b 1s infinite alternate}.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}@keyframes b{to{opacity:.25;transform:translateY(-3px)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="brand"><div class="logo">NX</div><div><div class="title">NOX ULTRA AI</div><div class="subtitle">Assistente multimodo para Android</div></div></div>
+    <div class="panel">
+      <div class="row">
+        <input id="key" type="password" placeholder="Chave da API OpenAI">
+        <select id="mode"><option value="auto">⚡ Auto</option><option value="ultra">🔥 Ultra</option><option value="code">💻 Código</option><option value="research">🌐 Pesquisa</option><option value="creative">✨ Criativo</option></select>
+      </div>
+      <div class="row" style="margin-top:8px"><input id="model" value="gpt-5.6-sol" aria-label="modelo"></div>
+      <div class="tiny">A chave fica somente enquanto o app está aberto e não vem embutida no APK.</div>
+    </div>
+  </div>
+  <div id="chat" class="chat">
+    <div class="welcome"><b>NOX está pronta.</b><br>Escolha um modo, escreva sua pergunta e envie. Pesquisa pode usar busca atual; Ultra faz uma segunda revisão.</div>
+  </div>
+</div>
+<div class="composer"><div class="composeInner" id="box">
+<textarea id="prompt" placeholder="Pergunte qualquer coisa..." rows="2"></textarea>
+<div class="actions"><span class="chip" id="status">Pronta</span><div><button class="read" id="read">🔊 Ler</button> <button class="send" id="send">Enviar ➜</button></div></div>
+</div></div>
+<script>
+const chat=document.getElementById('chat'),promptEl=document.getElementById('prompt'),send=document.getElementById('send'),box=document.getElementById('box'),statusEl=document.getElementById('status');let lastAI='';
+function msg(text,cls){const d=document.createElement('div');d.className='msg '+cls;d.textContent=text;chat.appendChild(d);window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});return d}
+function loading(){const d=document.createElement('div');d.className='msg ai';d.id='loading';d.innerHTML='<span class="dots"><i></i><i></i><i></i></span>';chat.appendChild(d);window.scrollTo(0,document.body.scrollHeight)}
+function finish(){document.getElementById('loading')?.remove();box.classList.remove('busy');statusEl.textContent='Pronta'}
+function ask(){const p=promptEl.value.trim();if(!p)return;const k=document.getElementById('key').value.trim();if(!k){msg('Digite sua chave da API acima para ativar a IA.','error');return}msg(p,'user');promptEl.value='';box.classList.add('busy');statusEl.textContent='Pensando…';loading();NOX.ask(k,document.getElementById('model').value.trim(),document.getElementById('mode').value,p)}
+send.onclick=ask;promptEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask()}});document.getElementById('read').onclick=()=>{if(lastAI)NOX.speak(lastAI)};
+window.NOX_RESULT=function(text){finish();lastAI=text;msg(text,'ai')};window.NOX_ERROR=function(text){finish();msg(text,'error')};
+</script>
+</body>
+</html>
