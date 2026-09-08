@@ -20,7 +20,8 @@ jobs:
 
       - name: Apply HD renderer sources
         run: |
-          base64 -d nox-monsters-3d/hd_sources.tar.gz.b64 > /tmp/nox-hd.tar.gz
+          cat nox-monsters-3d/hd_parts/part1.b64 nox-monsters-3d/hd_parts/part2.b64 nox-monsters-3d/hd_parts/part3.b64 nox-monsters-3d/hd_parts/part4.b64 nox-monsters-3d/hd_parts/part5.b64 | base64 -d > /tmp/nox-hd.tar.gz
+          gzip -t /tmp/nox-hd.tar.gz
           tar -xzf /tmp/nox-hd.tar.gz -C nox-monsters-3d/app/src/main/java/com/nox/monsters3d
 
       - name: Set up Java 17
