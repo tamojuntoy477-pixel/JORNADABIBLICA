@@ -7,10 +7,10 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.nox.jornadabiblica"
+        applicationId "com.nox.monsters3d"
         minSdk 23
         targetSdk 35
-        versionCode 4
-        versionName "2.1"
+        versionCode 10
+        versionName "1.0.0"
     }
 }
