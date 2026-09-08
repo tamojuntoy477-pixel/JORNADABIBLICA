@@ -1,0 +1,55 @@
+name: Build NOX Football Ultra APK
+
+on:
+  push:
+    branches:
+      - nox-football-ultra-app
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nox-football-ultra-android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Restore game asset
+        run: |
+          base64 -d app/src/main/assets/index_html_gz_b64.txt | gzip -d > app/src/main/assets/index.html
+          rm app/src/main/assets/index_html_gz_b64.txt
+
+      - name: Build APK
+        run: gradle --no-daemon assembleDebug
+
+      - name: Prepare APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk NOX-Football-Ultra.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOX-Football-Ultra-APK
+          path: nox-football-ultra-android/NOX-Football-Ultra.apk
+          if-no-files-found: error
