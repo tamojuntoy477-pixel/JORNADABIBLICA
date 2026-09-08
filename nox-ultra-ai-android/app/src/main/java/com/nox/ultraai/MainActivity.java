@@ -9,7 +9,6 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -22,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
+    private static final String BACKEND_CONFIG_URL = "https://raw.githubusercontent.com/tamojuntoy477-pixel/JORNADABIBLICA/nox-ultra-ai-app/nox-backend-url.txt";
     private WebView webView;
     private TextToSpeech tts;
 
@@ -64,27 +64,15 @@ public class MainActivity extends Activity {
 
     public class NoxBridge {
         @JavascriptInterface
-        public void ask(String apiKey, String model, String mode, String prompt) {
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                sendError("Digite sua chave da API para usar a IA.");
-                return;
-            }
+        public void ask(String mode, String prompt) {
             if (prompt == null || prompt.trim().isEmpty()) return;
-
             new Thread(() -> {
                 try {
-                    boolean useWeb = "research".equals(mode);
-                    String instructions = systemFor(mode);
-                    String first = callResponses(apiKey.trim(), model, instructions, prompt, useWeb, "ultra".equals(mode));
-                    String result = first;
-
-                    if ("ultra".equals(mode)) {
-                        String improve = "Revise a resposta abaixo. Corrija erros, melhore clareza e precisão, preserve o idioma do usuário e devolva apenas a resposta final melhorada.\n\nRESPOSTA:\n" + first;
-                        result = callResponses(apiKey.trim(), model, systemFor("ultra-review"), improve, false, true);
-                    }
+                    String backendUrl = resolveBackendUrl();
+                    String result = callBackend(backendUrl, mode, prompt.trim());
                     sendResult(result);
                 } catch (Exception e) {
-                    sendError(e.getMessage() == null ? "Falha ao consultar a IA." : e.getMessage());
+                    sendError(e.getMessage() == null ? "Falha ao consultar a NOX." : e.getMessage());
                 }
             }).start();
         }
@@ -99,47 +87,33 @@ public class MainActivity extends Activity {
         }
     }
 
-    private String systemFor(String mode) {
-        String base = "Você é NOX ULTRA AI, uma assistente útil, clara, criativa e segura. Responda no idioma do usuário. Não finja capacidades que não possui.";
-        switch (mode) {
-            case "code": return base + " Priorize código correto, explique bugs de forma prática e use blocos de código quando necessário.";
-            case "research": return base + " Priorize fatos verificáveis e pesquisa atual. Diferencie fatos de incertezas.";
-            case "creative": return base + " Priorize criatividade, ideias originais e boa apresentação.";
-            case "ultra": return base + " Trabalhe com alto cuidado: verifique a própria resposta e priorize precisão.";
-            case "ultra-review": return base + " Você é o revisor final. Elimine erros, contradições e conteúdo inútil.";
-            default: return base + " Escolha a abordagem mais adequada para a tarefa.";
-        }
+    private String resolveBackendUrl() throws Exception {
+        URL url = new URL(BACKEND_CONFIG_URL + "?t=" + System.currentTimeMillis());
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(15000);
+        conn.setUseCaches(false);
+        int status = conn.getResponseCode();
+        if (status < 200 || status >= 300) throw new Exception("Não foi possível localizar o servidor da NOX.");
+        String value = readAll(conn.getInputStream()).trim();
+        if (!value.startsWith("https://")) throw new Exception("Servidor seguro da NOX ainda não foi ativado.");
+        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 
-    private String callResponses(String apiKey, String model, String instructions, String input, boolean useWeb, boolean highReasoning) throws Exception {
-        if (model == null || model.trim().isEmpty()) model = "gpt-5.6-sol";
-
-        URL url = new URL("https://api.openai.com/v1/responses");
+    private String callBackend(String backendUrl, String mode, String prompt) throws Exception {
+        URL url = new URL(backendUrl + "/api/chat");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setConnectTimeout(30000);
         conn.setReadTimeout(120000);
         conn.setDoOutput(true);
-        conn.setRequestProperty("Authorization", "Bearer " + apiKey);
-        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        conn.setRequestProperty("Accept", "application/json");
 
         JSONObject body = new JSONObject();
-        body.put("model", model.trim());
-        body.put("instructions", instructions);
-        body.put("input", input);
-        if (highReasoning) {
-            JSONObject reasoning = new JSONObject();
-            reasoning.put("effort", "high");
-            body.put("reasoning", reasoning);
-        }
-        if (useWeb) {
-            JSONArray tools = new JSONArray();
-            JSONObject web = new JSONObject();
-            web.put("type", "web_search");
-            tools.put(web);
-            body.put("tools", tools);
-        }
-
+        body.put("mode", mode == null ? "auto" : mode);
+        body.put("prompt", prompt);
         byte[] payload = body.toString().getBytes(StandardCharsets.UTF_8);
         try (OutputStream os = conn.getOutputStream()) {
             os.write(payload);
@@ -148,48 +122,21 @@ public class MainActivity extends Activity {
         int status = conn.getResponseCode();
         InputStream stream = status >= 200 && status < 300 ? conn.getInputStream() : conn.getErrorStream();
         String raw = readAll(stream);
-        JSONObject json = new JSONObject(raw);
-
+        JSONObject json = new JSONObject(raw.isEmpty() ? "{}" : raw);
         if (status < 200 || status >= 300) {
-            if (json.has("error")) {
-                JSONObject err = json.getJSONObject("error");
-                throw new Exception(err.optString("message", "Erro da API (" + status + ")"));
-            }
-            throw new Exception("Erro da API (" + status + ")");
+            throw new Exception(json.optString("error", "Erro do servidor (" + status + ")"));
         }
-
-        String text = extractOutputText(json);
-        if (text.isEmpty()) throw new Exception("A IA respondeu sem texto.");
+        String text = json.optString("text", "").trim();
+        if (text.isEmpty()) throw new Exception("A NOX respondeu sem texto.");
         return text;
     }
 
-    private String extractOutputText(JSONObject json) {
-        StringBuilder sb = new StringBuilder();
-        JSONArray output = json.optJSONArray("output");
-        if (output == null) return json.optString("output_text", "");
-        for (int i = 0; i < output.length(); i++) {
-            JSONObject item = output.optJSONObject(i);
-            if (item == null) continue;
-            JSONArray content = item.optJSONArray("content");
-            if (content == null) continue;
-            for (int j = 0; j < content.length(); j++) {
-                JSONObject part = content.optJSONObject(j);
-                if (part == null) continue;
-                if ("output_text".equals(part.optString("type"))) {
-                    if (sb.length() > 0) sb.append("\n");
-                    sb.append(part.optString("text", ""));
-                }
-            }
-        }
-        return sb.toString().trim();
-    }
-
     private String readAll(InputStream stream) throws Exception {
-        if (stream == null) return "{}";
+        if (stream == null) return "";
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
         StringBuilder sb = new StringBuilder();
         String line;
-        while ((line = reader.readLine()) != null) sb.append(line);
+        while ((line = reader.readLine()) != null) sb.append(line).append('\n');
         reader.close();
         return sb.toString();
     }
