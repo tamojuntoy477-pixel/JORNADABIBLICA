@@ -215,7 +215,7 @@ class GameRenderer implements GLSurfaceView.Renderer {
         }
     }
 
-    @Override public void onSurfaceCreated(javax.microedition.khronos.egl.EGLConfig config) {
+    @Override public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl, javax.microedition.khronos.egl.EGLConfig config) {
         GLES20.glClearColor(0.38f, 0.72f, 0.95f, 1f);
         GLES20.glEnable(GLES20.GL_DEPTH_TEST);
         String vs = "attribute vec3 aPosition; uniform mat4 uMVP; void main(){ gl_Position=uMVP*vec4(aPosition,1.0); }";
