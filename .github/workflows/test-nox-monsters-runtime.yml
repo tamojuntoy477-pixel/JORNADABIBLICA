@@ -47,7 +47,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Boot emulator and launch app
+      - name: Boot emulator and launch 3D world
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -58,10 +58,13 @@ jobs:
             adb install -r nox-monsters-3d/app/build/outputs/apk/debug/app-debug.apk
             adb logcat -c
             adb shell am start -W -n com.nox.monsters3d/.MainActivity
+            sleep 2
+            adb shell input tap 960 650
             sleep 8
-            echo '=== PID ==='
-            PID=$(adb shell pidof com.nox.monsters3d | tr -d '\r')
-            echo "$PID"
-            echo '=== CRASH LOG ==='
-            adb logcat -d -v time AndroidRuntime:E '*:S' | tail -n 120 || true
-            test -n "$PID"
+            echo '=== PROCESS ==='
+            adb shell pidof com.nox.monsters3d
+            echo '=== TOP ACTIVITY ==='
+            adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity|com.nox.monsters3d' | tail -n 30 || true
+            echo '=== ERRORS ==='
+            adb logcat -d -v time | grep -E 'FATAL EXCEPTION|Fatal signal|AndroidRuntime|com.nox.monsters3d' | tail -n 180 || true
+            adb shell pidof com.nox.monsters3d | grep -q .
