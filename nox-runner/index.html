@@ -4,6 +4,8 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <meta name="theme-color" content="#070b18"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="icon.svg" type="image/svg+xml"/>
 <title>NOX RUNNER</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050816;color:#fff;font-family:system-ui,Arial,sans-serif;touch-action:none}.wrap{position:fixed;inset:0;background:radial-gradient(circle at 50% 20%,#172554 0,#070b18 45%,#02040b 100%)}canvas{width:100%;height:100%;display:block}.hud{position:fixed;top:env(safe-area-inset-top);left:0;right:0;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}.brand{font-weight:1000;letter-spacing:1px;font-size:18px}.score{background:#ffffff12;border:1px solid #ffffff20;border-radius:14px;padding:8px 12px;font-weight:800;backdrop-filter:blur(8px)}.overlay{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:#02040b99;backdrop-filter:blur(6px)}.card{width:min(420px,100%);text-align:center;background:#0d1428;border:1px solid #ffffff20;border-radius:26px;padding:26px;box-shadow:0 30px 80px #000a}.logo{width:78px;height:78px;border-radius:24px;margin:auto;display:grid;place-items:center;font-size:34px;font-weight:1000;background:linear-gradient(135deg,#22d3ee,#7c3aed);box-shadow:0 0 34px #22d3ee55}h1{margin:16px 0 6px;font-size:32px}p{opacity:.75;line-height:1.4}.btn{margin-top:14px;width:100%;border:0;border-radius:16px;padding:15px;font-weight:900;font-size:17px;color:#fff;background:linear-gradient(135deg,#2563eb,#7c3aed)}.small{font-size:12px;opacity:.55;margin-top:10px}.controls{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));display:flex;justify-content:space-between;padding:0 18px;pointer-events:none}.ctrl{pointer-events:auto;width:84px;height:84px;border-radius:50%;border:1px solid #ffffff25;background:#ffffff12;color:#fff;font-size:30px;font-weight:900;backdrop-filter:blur(8px)}.hide{display:none!important}
@@ -25,13 +27,12 @@ function start(){reset();menu.classList.add('hide');go.classList.add('hide');con
 function end(){running=false;controls.classList.add('hide');best=Math.max(best,Math.floor(score));localStorage.setItem('noxRunnerBest',best);finalEl.textContent='Pontuação: '+Math.floor(score);bestEl.textContent='Recorde: '+best;go.classList.remove('hide')}
 function rnd(a,b){return Math.random()*(b-a)+a}
 function rect(x,y,w,h,r=10){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
-function collide(a,b){return a.x<a.x+a.w&&a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
 function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y}
 function spawnObs(){let w=rnd(42,74);items.push({x:rnd(14,W-w-14),y:-90,w,h:rnd(46,78),rot:rnd(-.12,.12)})}
 function spawnCoin(){coins.push({x:rnd(28,W-48),y:-50,w:26,h:26,t:0})}
 function burst(x,y){for(let i=0;i<12;i++)particles.push({x,y,vx:rnd(-90,90),vy:rnd(-120,40),life:1})}
 function update(dt){score+=dt*12;speed=Math.min(680,260+score*0.55);spawn-=dt;coinSpawn-=dt;if(spawn<=0){spawnObs();spawn=Math.max(.28,1.0-score/900)}if(coinSpawn<=0){spawnCoin();coinSpawn=rnd(1.3,2.3)}
- player.vx+=(moveR?1:0-(moveL?1:0))*1500*dt;player.vx*=Math.pow(.001,dt);player.x+=player.vx*dt;player.x=Math.max(10,Math.min(W-player.w-10,player.x));player.y=H-130;
+ let dir=(moveR?1:0)-(moveL?1:0);player.vx+=dir*1500*dt;player.vx*=Math.pow(.001,dt);player.x+=player.vx*dt;player.x=Math.max(10,Math.min(W-player.w-10,player.x));player.y=H-130;
  for(const o of items)o.y+=speed*dt;for(const k of coins){k.y+=speed*.9*dt;k.t+=dt}items=items.filter(o=>o.y<H+100);coins=coins.filter(k=>k.y<H+80&&!k.got);
  for(const o of items)if(hit(player,o))return end();
  for(const k of coins)if(hit(player,k)){k.got=true;score+=50;burst(k.x+13,k.y+13)}
