@@ -1,0 +1,46 @@
+name: Build futREAL Godot 5 APK
+
+on:
+  push:
+    branches: [ futreal-app ]
+    paths:
+      - 'futREAL-Godot/**'
+      - '.github/workflows/futreal-godot-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  export-android:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Godot
+        run: godot --version
+
+      - name: Prepare debug keystore
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/build"
+          keytool -genkeypair -v \
+            -keystore "$GITHUB_WORKSPACE/debug.keystore" \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=futREAL,C=BR"
+
+      - name: Import project
+        run: godot --headless --editor --path "$GITHUB_WORKSPACE/futREAL-Godot" --quit
+
+      - name: Export Android APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: godot --headless --path "$GITHUB_WORKSPACE/futREAL-Godot" --export-debug "Android" "$GITHUB_WORKSPACE/build/futREAL-v5.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: futREAL-v5-godot-apk
+          path: build/futREAL-v5.apk
