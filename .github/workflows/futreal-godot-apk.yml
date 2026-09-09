@@ -27,6 +27,15 @@ jobs:
           fi
           godot --version
 
+      - name: Install Android 34 SDK tools
+        shell: bash
+        run: |
+          yes | sdkmanager --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+          sdkmanager --sdk_root="$ANDROID_HOME" \
+            "platform-tools" \
+            "build-tools;34.0.0" \
+            "platforms;android-34"
+
       - name: Prepare debug keystore
         shell: bash
         run: |
