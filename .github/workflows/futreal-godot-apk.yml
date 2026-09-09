@@ -17,10 +17,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify Godot
-        run: godot --version
+      - name: Prepare Godot CI home
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.local/share/godot/export_templates" "$HOME/.config/godot"
+          cp -a /root/.local/share/godot/export_templates/. "$HOME/.local/share/godot/export_templates/"
+          if [ -d /root/.config/godot ]; then
+            cp -a /root/.config/godot/. "$HOME/.config/godot/"
+          fi
+          godot --version
 
       - name: Prepare debug keystore
+        shell: bash
         run: |
           mkdir -p "$GITHUB_WORKSPACE/build"
           keytool -genkeypair -v \
@@ -29,15 +37,23 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android Debug,O=futREAL,C=BR"
 
-      - name: Import project
-        run: godot --headless --editor --path "$GITHUB_WORKSPACE/futREAL-Godot" --quit
+      - name: Validate and import project
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --editor --path "$GITHUB_WORKSPACE/futREAL-Godot" --quit 2>&1 | tee /tmp/godot-import.log
+          if grep -q "SCRIPT ERROR: Parse Error" /tmp/godot-import.log; then
+            echo "Godot script parse error detected"
+            exit 1
+          fi
 
       - name: Export Android APK
-        env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
-        run: godot --headless --path "$GITHUB_WORKSPACE/futREAL-Godot" --export-debug "Android" "$GITHUB_WORKSPACE/build/futREAL-v5.apk"
+        shell: bash
+        run: |
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$GITHUB_WORKSPACE/debug.keystore"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_USER="androiddebugkey"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="android"
+          godot --headless --path "$GITHUB_WORKSPACE/futREAL-Godot" --export-debug "Android" "$GITHUB_WORKSPACE/build/futREAL-v5.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
