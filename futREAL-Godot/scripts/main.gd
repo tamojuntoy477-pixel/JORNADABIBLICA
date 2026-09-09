@@ -142,10 +142,11 @@ func _build_pitch() -> void:
 	_box(self, Vector3(34, 0.01, 0), Vector3(0.13, 0.025, 105), white)
 	_box(self, Vector3(0, 0.01, -52.5), Vector3(68, 0.025, 0.13), white)
 	_box(self, Vector3(0, 0.01, 52.5), Vector3(68, 0.025, 0.13), white)
-	for z in [-43.0, 43.0]:
+	for z_value in [-43.0, 43.0]:
+		var z: float = float(z_value)
 		_box(self, Vector3(-10, 0.01, z), Vector3(0.13, 0.025, 19), white)
 		_box(self, Vector3(10, 0.01, z), Vector3(0.13, 0.025, 19), white)
-		var end_z := z + (9.5 if z < 0 else -9.5)
+		var end_z: float = z + (9.5 if z < 0.0 else -9.5)
 		_box(self, Vector3(0, 0.01, end_z), Vector3(20, 0.025, 0.13), white)
 
 func _build_goals() -> void:
