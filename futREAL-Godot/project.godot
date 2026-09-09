@@ -1,12 +1,12 @@
-; futREAL 5.0 - Godot 4
-; Base 3D original para Android
+; futREAL 5.1 - Godot 4
+; Base 3D original para Android com modo de compatibilidade
 
 config_version=5
 
 [application]
 config/name="futREAL"
 run/main_scene="res://Main.tscn"
-config/features=PackedStringArray("4.3", "Mobile")
+config/features=PackedStringArray("4.3", "GL Compatibility")
 boot_splash/bg_color=Color(0.025, 0.06, 0.04, 1)
 boot_splash/show_image=false
 
@@ -17,10 +17,9 @@ window/stretch/mode="canvas_items"
 window/handheld/orientation=1
 
 [rendering]
-renderer/rendering_method="mobile"
-renderer/rendering_method.mobile="mobile"
-anti_aliasing/quality/msaa_3d=1
-lights_and_shadows/directional_shadow/size=2048
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+renderer/rendering_method.web="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 
 [physics]
