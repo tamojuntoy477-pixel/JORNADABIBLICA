@@ -12,6 +12,6 @@ public class AndroidLauncher extends AndroidApplication {
         config.useImmersiveMode = true;
         config.useWakelock = true;
         config.numSamples = 2;
-        initialize(new FutRealGameNext(), config);
+        initialize(new FutRealV7Game(), config);
     }
 }
