@@ -21,6 +21,7 @@ renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
 anti_aliasing/quality/msaa_3d=1
 lights_and_shadows/directional_shadow/size=2048
+textures/vram_compression/import_etc2_astc=true
 
 [physics]
 3d/default_gravity=14.0
