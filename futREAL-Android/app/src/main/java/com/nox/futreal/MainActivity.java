@@ -2,49 +2,54 @@ package com.nox.futreal;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.RadialGradient;
-import android.graphics.RectF;
-import android.graphics.Shader;
+import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.TextView;
+import android.widget.FrameLayout;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.Random;
 
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
 public class MainActivity extends Activity {
+    private GameState state;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        try {
-            requestWindowFeature(Window.FEATURE_NO_TITLE);
-            getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                    WindowManager.LayoutParams.FLAG_FULLSCREEN);
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_FULLSCREEN |
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
-            setContentView(new FutRealView(this));
-        } catch (Throwable e) {
-            TextView t = new TextView(this);
-            t.setBackgroundColor(Color.rgb(5, 12, 9));
-            t.setTextColor(Color.WHITE);
-            t.setTextSize(21);
-            t.setPadding(32, 32, 32, 32);
-            t.setText("futREAL\n\nO app abriu em modo seguro.\nFeche e abra novamente para carregar o jogo.");
-            setContentView(t);
-        }
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+
+        state = new GameState();
+        FrameLayout root = new FrameLayout(this);
+        GLGameView game = new GLGameView(this, state);
+        HudView hud = new HudView(this, state);
+        root.addView(game, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        root.addView(hud, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        setContentView(root);
     }
 
     @Override
@@ -61,375 +66,570 @@ public class MainActivity extends Activity {
         }
     }
 
-    static class FutRealView extends View {
-        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final SharedPreferences prefs;
-        private final Random random = new Random();
+    static class GLGameView extends GLSurfaceView {
+        GLGameView(Context context, GameState state) {
+            super(context);
+            setEGLContextClientVersion(2);
+            setPreserveEGLContextOnPause(true);
+            setRenderer(new GameRenderer(state));
+            setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        }
+    }
 
-        private int screen = 0;
-        private int games, goals, wins, draws, points, speed, shot, pass, fans, seasonPoints;
-        private int homeScore, awayScore;
-        private float matchTime, stamina = 1f;
-        private long lastNs;
-        private boolean sprint = false;
-        private boolean hasBall = true;
-        private boolean passInFlight = false;
-        private int passTarget = -1;
-        private long lastStealNs = 0;
+    static class GameState {
+        volatile float joyX, joyY;
+        volatile boolean sprint;
+        volatile boolean shootRequest;
+        volatile boolean passRequest;
 
-        private float px = .50f, py = .76f;
-        private float bx = .50f, by = .72f, bvx = 0, bvy = 0;
-        private float joyX = 0, joyY = 0;
+        float playerX = 0f, playerZ = 30f;
+        float ballX = 0f, ballY = .45f, ballZ = 27.8f;
+        float ballVX, ballVY, ballVZ;
+        boolean userHasBall = true;
+        boolean opponentHasBall = false;
+        int opponentOwner = -1;
+        int homeScore, awayScore;
+        float minute;
+        float stamina = 100f;
+        int shots, passes;
 
-        private final float[] mateX = {.18f,.34f,.66f,.82f,.28f,.50f,.72f,.40f,.60f,.50f};
-        private final float[] mateY = {.82f,.72f,.72f,.82f,.56f,.60f,.56f,.38f,.38f,.18f};
-        private final float[] oppX  = {.15f,.34f,.50f,.66f,.85f,.25f,.44f,.58f,.76f,.40f,.60f};
-        private final float[] oppY  = {.18f,.26f,.22f,.26f,.18f,.43f,.46f,.46f,.43f,.62f,.62f};
+        final float[][] mates = {
+                {-18f, 22f}, {18f, 20f}, {-11f, 2f}, {13f, -4f}, {0f, -24f}
+        };
+        final float[][] opponents = {
+                {-20f, -18f}, {-8f, -9f}, {9f, -12f}, {20f, -22f}, {0f, -34f}
+        };
+        final Random rng = new Random(19);
 
-        private final RectF career = new RectF();
-        private final RectF quick = new RectF();
-        private final RectF train = new RectF();
-        private final RectF profile = new RectF();
-        private final RectF back = new RectF();
-        private final RectF nextMatch = new RectF();
-        private final RectF trainSpeed = new RectF();
-        private final RectF trainShot = new RectF();
-        private final RectF trainPass = new RectF();
-        private final RectF shootBtn = new RectF();
-        private final RectF passBtn = new RectF();
-        private final RectF sprintBtn = new RectF();
+        void update(float dt) {
+            minute += dt * 1.75f;
+            if (minute >= 90f) {
+                minute = 0f;
+                homeScore = 0;
+                awayScore = 0;
+                shots = 0;
+                passes = 0;
+                resetKickoff();
+            }
 
-        private float fieldL, fieldT, fieldR, fieldB;
+            float jx = joyX, jy = joyY;
+            float mag = (float)Math.sqrt(jx * jx + jy * jy);
+            if (mag > 1f) { jx /= mag; jy /= mag; }
+            float speed = sprint && stamina > 1f ? 13.5f : 8.8f;
+            if (sprint && mag > .12f) stamina = Math.max(0f, stamina - dt * 15f);
+            else stamina = Math.min(100f, stamina + dt * 7f);
 
-        FutRealView(Context c) {
-            super(c);
-            setFocusable(true);
-            prefs = c.getSharedPreferences("futreal_save_v2", Context.MODE_PRIVATE);
-            games = prefs.getInt("games", 0);
-            goals = prefs.getInt("goals", 0);
-            wins = prefs.getInt("wins", 0);
-            draws = prefs.getInt("draws", 0);
-            points = prefs.getInt("points", 8);
-            speed = prefs.getInt("speed", 72);
-            shot = prefs.getInt("shot", 70);
-            pass = prefs.getInt("pass", 69);
-            fans = prefs.getInt("fans", 1250);
-            seasonPoints = prefs.getInt("seasonPoints", 0);
-            p.setTypeface(android.graphics.Typeface.create("sans", android.graphics.Typeface.BOLD));
-            stroke.setStyle(Paint.Style.STROKE);
-            stroke.setStrokeWidth(2.5f);
-            stroke.setColor(Color.argb(220, 255, 255, 255));
+            playerX = clamp(playerX + jx * speed * dt, -31f, 31f);
+            playerZ = clamp(playerZ + jy * speed * dt, -49f, 49f);
+
+            if (userHasBall) {
+                ballX = playerX + jx * 1.0f;
+                ballZ = playerZ + jy * 1.0f - 1.2f;
+                ballY = .45f;
+                ballVX = ballVY = ballVZ = 0f;
+            }
+
+            if (shootRequest) {
+                shootRequest = false;
+                if (userHasBall) {
+                    userHasBall = false;
+                    shots++;
+                    float targetX = clamp(jx * 5.5f, -5.5f, 5.5f);
+                    float dx = targetX - ballX;
+                    float dz = -53f - ballZ;
+                    float d = (float)Math.sqrt(dx * dx + dz * dz);
+                    ballVX = dx / d * 28f;
+                    ballVZ = dz / d * 28f;
+                    ballVY = 6.3f;
+                }
+            }
+
+            if (passRequest) {
+                passRequest = false;
+                if (userHasBall) {
+                    userHasBall = false;
+                    passes++;
+                    int best = 0;
+                    float bestScore = 9999f;
+                    for (int i = 0; i < mates.length; i++) {
+                        float dz = mates[i][1] - playerZ;
+                        float score = Math.abs(mates[i][0] - playerX) + Math.abs(dz) * .4f + (dz > 4 ? 18 : 0);
+                        if (score < bestScore) { bestScore = score; best = i; }
+                    }
+                    float tx = mates[best][0], tz = mates[best][1];
+                    float dx = tx - ballX, dz = tz - ballZ;
+                    float d = Math.max(.1f, (float)Math.sqrt(dx * dx + dz * dz));
+                    ballVX = dx / d * 20f;
+                    ballVZ = dz / d * 20f;
+                    ballVY = 1.4f;
+                }
+            }
+
+            if (!userHasBall && !opponentHasBall) {
+                ballX += ballVX * dt;
+                ballY += ballVY * dt;
+                ballZ += ballVZ * dt;
+                ballVY -= 15.5f * dt;
+                ballVX *= (float)Math.pow(.985, dt * 60f);
+                ballVZ *= (float)Math.pow(.985, dt * 60f);
+                if (ballY < .45f) {
+                    ballY = .45f;
+                    if (Math.abs(ballVY) > 1f) ballVY = -ballVY * .38f;
+                    else ballVY = 0f;
+                }
+                if (dist(playerX, playerZ, ballX, ballZ) < 1.55f && ballY < 1.2f) {
+                    userHasBall = true;
+                }
+            }
+
+            moveTeammates(dt);
+            moveOpponents(dt);
+
+            if (opponentHasBall && opponentOwner >= 0) {
+                float[] o = opponents[opponentOwner];
+                ballX = o[0]; ballZ = o[1] + 1.0f; ballY = .45f;
+                if (dist(playerX, playerZ, o[0], o[1]) < 1.45f) {
+                    opponentHasBall = false;
+                    opponentOwner = -1;
+                    userHasBall = true;
+                } else if (o[1] > 39f) {
+                    opponentHasBall = false;
+                    opponentOwner = -1;
+                    float dx = -ballX * .22f;
+                    float dz = 53f - ballZ;
+                    float d = Math.max(.1f, (float)Math.sqrt(dx * dx + dz * dz));
+                    ballVX = dx / d * 25f;
+                    ballVZ = dz / d * 25f;
+                    ballVY = 4.2f;
+                }
+            }
+
+            keeperBlocks();
+            checkGoals();
         }
 
-        private void save() {
-            prefs.edit()
-                    .putInt("games", games)
-                    .putInt("goals", goals)
-                    .putInt("wins", wins)
-                    .putInt("draws", draws)
-                    .putInt("points", points)
-                    .putInt("speed", speed)
-                    .putInt("shot", shot)
-                    .putInt("pass", pass)
-                    .putInt("fans", fans)
-                    .putInt("seasonPoints", seasonPoints)
-                    .apply();
+        private void moveTeammates(float dt) {
+            float[][] targets = {
+                    {-20f, 20f}, {20f, 18f}, {-12f, -2f}, {14f, -8f}, {0f, -28f}
+            };
+            for (int i = 0; i < mates.length; i++) {
+                float tx = targets[i][0] + playerX * .20f;
+                float tz = targets[i][1] + (playerZ - 30f) * .35f;
+                chase(mates[i], tx, tz, 5.0f, dt);
+                if (!userHasBall && !opponentHasBall && dist(mates[i][0], mates[i][1], ballX, ballZ) < 1.15f && ballY < 1.0f) {
+                    float dx = playerX - mates[i][0];
+                    float dz = playerZ - mates[i][1];
+                    float d = Math.max(.1f, (float)Math.sqrt(dx * dx + dz * dz));
+                    ballX = mates[i][0]; ballZ = mates[i][1];
+                    ballVX = dx / d * 16f; ballVZ = dz / d * 16f; ballVY = .8f;
+                }
+            }
         }
 
-        private int ovr() { return Math.round(speed * .34f + shot * .36f + pass * .30f); }
+        private void moveOpponents(float dt) {
+            int nearest = 0;
+            float nearestD = 999f;
+            for (int i = 0; i < opponents.length; i++) {
+                float d = dist(opponents[i][0], opponents[i][1], ballX, ballZ);
+                if (d < nearestD) { nearestD = d; nearest = i; }
+            }
+            for (int i = 0; i < opponents.length; i++) {
+                float tx, tz;
+                if (opponentHasBall && i == opponentOwner) {
+                    tx = clamp(opponents[i][0] * .96f, -12f, 12f);
+                    tz = 49f;
+                    chase(opponents[i], tx, tz, 7.8f, dt);
+                } else if (i == nearest || (userHasBall && i < 2)) {
+                    tx = userHasBall ? playerX : ballX;
+                    tz = userHasBall ? playerZ : ballZ;
+                    chase(opponents[i], tx, tz, 7.2f, dt);
+                } else {
+                    float baseX = (i - 2) * 10f;
+                    tx = clamp(baseX + playerX * .12f, -25f, 25f);
+                    tz = -18f + i * 3f + (playerZ - 30f) * .26f;
+                    chase(opponents[i], tx, tz, 4.2f, dt);
+                }
+
+                if (userHasBall && dist(opponents[i][0], opponents[i][1], playerX, playerZ) < 1.35f) {
+                    if (rng.nextFloat() < dt * 2.0f) {
+                        userHasBall = false;
+                        opponentHasBall = true;
+                        opponentOwner = i;
+                    }
+                } else if (!userHasBall && !opponentHasBall &&
+                        dist(opponents[i][0], opponents[i][1], ballX, ballZ) < 1.2f && ballY < 1.0f) {
+                    opponentHasBall = true;
+                    opponentOwner = i;
+                }
+            }
+        }
+
+        private void keeperBlocks() {
+            if (!userHasBall && !opponentHasBall && ballY < 2.6f) {
+                if (ballZ < -49f && Math.abs(ballX) < 7.2f) {
+                    if (Math.abs(ballX) < 5.6f && rng.nextFloat() < .35f) {
+                        ballVZ = Math.abs(ballVZ) * .55f;
+                        ballVX += (ballX >= 0 ? 7f : -7f);
+                        ballVY = 4f;
+                    }
+                }
+                if (ballZ > 49f && Math.abs(ballX) < 7.2f) {
+                    if (Math.abs(ballX) < 5.6f && rng.nextFloat() < .35f) {
+                        ballVZ = -Math.abs(ballVZ) * .55f;
+                        ballVX += (ballX >= 0 ? 7f : -7f);
+                        ballVY = 4f;
+                    }
+                }
+            }
+        }
+
+        private void checkGoals() {
+            if (ballZ < -52f && Math.abs(ballX) < 7.3f && ballY < 3.0f) {
+                homeScore++;
+                resetKickoff();
+            } else if (ballZ > 52f && Math.abs(ballX) < 7.3f && ballY < 3.0f) {
+                awayScore++;
+                resetKickoff();
+            } else if (Math.abs(ballX) > 36f || Math.abs(ballZ) > 58f) {
+                resetKickoff();
+            }
+        }
+
+        private void resetKickoff() {
+            playerX = 0f; playerZ = 30f;
+            ballX = 0f; ballY = .45f; ballZ = 27.8f;
+            ballVX = ballVY = ballVZ = 0f;
+            userHasBall = true;
+            opponentHasBall = false;
+            opponentOwner = -1;
+            float[][] m = {{-18,22},{18,20},{-11,2},{13,-4},{0,-24}};
+            float[][] o = {{-20,-18},{-8,-9},{9,-12},{20,-22},{0,-34}};
+            for (int i=0;i<mates.length;i++){mates[i][0]=m[i][0]; mates[i][1]=m[i][1];}
+            for (int i=0;i<opponents.length;i++){opponents[i][0]=o[i][0]; opponents[i][1]=o[i][1];}
+        }
+
+        private static void chase(float[] p, float tx, float tz, float speed, float dt) {
+            float dx = tx - p[0], dz = tz - p[1];
+            float d = (float)Math.sqrt(dx * dx + dz * dz);
+            if (d > .05f) {
+                float step = Math.min(d, speed * dt);
+                p[0] += dx / d * step; p[1] += dz / d * step;
+            }
+            p[0] = clamp(p[0], -31f, 31f); p[1] = clamp(p[1], -49f, 49f);
+        }
+
+        private static float dist(float ax, float az, float bx, float bz) {
+            float dx = ax - bx, dz = az - bz;
+            return (float)Math.sqrt(dx * dx + dz * dz);
+        }
+
+        private static float clamp(float v, float lo, float hi) { return Math.max(lo, Math.min(hi, v)); }
+    }
+
+    static class GameRenderer implements GLSurfaceView.Renderer {
+        private final GameState s;
+        private int program, posLoc, mvpLoc, colorLoc;
+        private final float[] proj = new float[16];
+        private final float[] view = new float[16];
+        private final float[] vp = new float[16];
+        private final float[] model = new float[16];
+        private final float[] mvp = new float[16];
+        private Mesh cube, sphere;
+        private long lastMs;
+
+        GameRenderer(GameState state) { s = state; }
 
         @Override
-        protected void onDraw(Canvas c) {
+        public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+            GLES20.glClearColor(.10f, .18f, .28f, 1f);
+            GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+            GLES20.glEnable(GLES20.GL_CULL_FACE);
+            GLES20.glCullFace(GLES20.GL_BACK);
+            String vs = "uniform mat4 uMVP; attribute vec3 aPos; void main(){ gl_Position=uMVP*vec4(aPos,1.0); }";
+            String fs = "precision mediump float; uniform vec4 uColor; void main(){ gl_FragColor=uColor; }";
+            program = link(vs, fs);
+            posLoc = GLES20.glGetAttribLocation(program, "aPos");
+            mvpLoc = GLES20.glGetUniformLocation(program, "uMVP");
+            colorLoc = GLES20.glGetUniformLocation(program, "uColor");
+            cube = Mesh.cube();
+            sphere = Mesh.sphere(10, 14);
+            lastMs = SystemClock.uptimeMillis();
+        }
+
+        @Override
+        public void onSurfaceChanged(GL10 gl, int width, int height) {
+            GLES20.glViewport(0, 0, width, height);
+            float aspect = width / (float)Math.max(1, height);
+            Matrix.perspectiveM(proj, 0, 53f, aspect, .1f, 220f);
+        }
+
+        @Override
+        public void onDrawFrame(GL10 gl) {
+            long now = SystemClock.uptimeMillis();
+            float dt = Math.min(.033f, Math.max(.001f, (now - lastMs) / 1000f));
+            lastMs = now;
+            s.update(dt);
+
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+            float camX = s.playerX * .20f;
+            float camZ = s.playerZ + 23f;
+            Matrix.setLookAtM(view, 0,
+                    camX, 15.5f, camZ,
+                    s.playerX * .12f, 0.5f, s.playerZ - 15f,
+                    0f, 1f, 0f);
+            Matrix.multiplyMM(vp, 0, proj, 0, view, 0);
+            GLES20.glUseProgram(program);
+
+            drawStadium();
+            drawPitch();
+            drawGoals();
+            drawPlayers();
+            drawBall();
+        }
+
+        private void drawStadium() {
+            float[] stand = {.16f,.18f,.22f,1f};
+            float[] crowd1 = {.08f,.28f,.45f,1f};
+            float[] crowd2 = {.50f,.12f,.20f,1f};
+            drawCube(0,-1.1f,0,76,1.8f,118,new float[]{.11f,.12f,.14f,1});
+            drawCube(-43,5,0,14,11,118,stand);
+            drawCube(43,5,0,14,11,118,stand);
+            drawCube(0,5,-65,72,11,16,stand);
+            drawCube(0,5,65,72,11,16,stand);
+            for (int z=-50; z<=50; z+=10) {
+                drawCube(-39,4.5f,z,1.2f,5,7,(z/10)%2==0?crowd1:crowd2);
+                drawCube(39,4.5f,z,1.2f,5,7,(z/10)%2==0?crowd2:crowd1);
+            }
+        }
+
+        private void drawPitch() {
+            float[] g1 = {.035f,.39f,.12f,1};
+            float[] g2 = {.028f,.32f,.095f,1};
+            for (int i=0;i<10;i++) {
+                float z = -47.25f + i*10.5f;
+                drawCube(0,-.06f,z,68,.12f,10.5f,(i%2==0)?g1:g2);
+            }
+            float[] white = {.90f,.94f,.90f,1};
+            drawCube(0,.03f,-52.5f,68,.06f,.12f,white);
+            drawCube(0,.03f,52.5f,68,.06f,.12f,white);
+            drawCube(-34,.03f,0,.12f,.06f,105,white);
+            drawCube(34,.03f,0,.12f,.06f,105,white);
+            drawCube(0,.03f,0,68,.06f,.12f,white);
+            drawCube(-10,.03f,-43, .12f,.06f,19,white);
+            drawCube(10,.03f,-43, .12f,.06f,19,white);
+            drawCube(0,.03f,-33.5f,20,.06f,.12f,white);
+            drawCube(-10,.03f,43, .12f,.06f,19,white);
+            drawCube(10,.03f,43, .12f,.06f,19,white);
+            drawCube(0,.03f,33.5f,20,.06f,.12f,white);
+            for (int i=0;i<32;i++) {
+                double a = i * Math.PI * 2 / 32.0;
+                float x = (float)Math.cos(a) * 9.15f;
+                float z = (float)Math.sin(a) * 9.15f;
+                drawCubeRotY(x,.035f,z,1.9f,.06f,.10f,-i*11.25f,white);
+            }
+        }
+
+        private void drawGoals() {
+            float[] w={.95f,.95f,.95f,1};
+            drawCube(-7.3f,1.25f,-53.2f,.16f,2.5f,.16f,w);
+            drawCube(7.3f,1.25f,-53.2f,.16f,2.5f,.16f,w);
+            drawCube(0,2.5f,-53.2f,14.7f,.16f,.16f,w);
+            drawCube(-7.3f,1.25f,53.2f,.16f,2.5f,.16f,w);
+            drawCube(7.3f,1.25f,53.2f,.16f,2.5f,.16f,w);
+            drawCube(0,2.5f,53.2f,14.7f,.16f,.16f,w);
+        }
+
+        private void drawPlayers() {
+            float[] user={.72f,1.0f,.20f,1};
+            float[] mate={.12f,.66f,.92f,1};
+            float[] opp={.92f,.18f,.18f,1};
+            float[] skin={.86f,.65f,.45f,1};
+            float[] keeper={.98f,.76f,.12f,1};
+            drawPerson(s.playerX,s.playerZ,user,skin,true);
+            for(float[] p:s.mates) drawPerson(p[0],p[1],mate,skin,false);
+            for(float[] p:s.opponents) drawPerson(p[0],p[1],opp,skin,false);
+            drawPerson(0,-49.8f,keeper,skin,false);
+            drawPerson(0,49.8f,keeper,skin,false);
+        }
+
+        private void drawPerson(float x,float z,float[] kit,float[] skin,boolean selected) {
+            drawCube(x,1.55f,z,1.05f,1.55f,.72f,kit);
+            drawCube(x,2.75f,z,.62f,.62f,.62f,skin);
+            drawCube(x-.26f,.58f,z,.30f,1.05f,.34f,new float[]{.08f,.10f,.12f,1});
+            drawCube(x+.26f,.58f,z,.30f,1.05f,.34f,new float[]{.08f,.10f,.12f,1});
+            if(selected) drawCube(x,.04f,z,1.8f,.04f,1.8f,new float[]{.74f,1f,.16f,1});
+        }
+
+        private void drawBall() {
+            Matrix.setIdentityM(model,0);
+            Matrix.translateM(model,0,s.ballX,s.ballY,s.ballZ);
+            Matrix.scaleM(model,0,.46f,.46f,.46f);
+            Matrix.multiplyMM(mvp,0,vp,0,model,0);
+            sphere.draw(posLoc,mvpLoc,colorLoc,mvp,new float[]{.96f,.96f,.96f,1});
+        }
+
+        private void drawCube(float x,float y,float z,float sx,float sy,float sz,float[] c) {
+            Matrix.setIdentityM(model,0);
+            Matrix.translateM(model,0,x,y,z);
+            Matrix.scaleM(model,0,sx,sy,sz);
+            Matrix.multiplyMM(mvp,0,vp,0,model,0);
+            cube.draw(posLoc,mvpLoc,colorLoc,mvp,c);
+        }
+
+        private void drawCubeRotY(float x,float y,float z,float sx,float sy,float sz,float deg,float[] c) {
+            Matrix.setIdentityM(model,0);
+            Matrix.translateM(model,0,x,y,z);
+            Matrix.rotateM(model,0,deg,0,1,0);
+            Matrix.scaleM(model,0,sx,sy,sz);
+            Matrix.multiplyMM(mvp,0,vp,0,model,0);
+            cube.draw(posLoc,mvpLoc,colorLoc,mvp,c);
+        }
+
+        private static int link(String vs, String fs) {
+            int v=compile(GLES20.GL_VERTEX_SHADER,vs), f=compile(GLES20.GL_FRAGMENT_SHADER,fs);
+            int p=GLES20.glCreateProgram();
+            GLES20.glAttachShader(p,v); GLES20.glAttachShader(p,f); GLES20.glLinkProgram(p);
+            GLES20.glDeleteShader(v); GLES20.glDeleteShader(f);
+            return p;
+        }
+        private static int compile(int type,String src) {
+            int s=GLES20.glCreateShader(type); GLES20.glShaderSource(s,src); GLES20.glCompileShader(s); return s;
+        }
+    }
+
+    static class Mesh {
+        final FloatBuffer vertices;
+        final int count;
+        Mesh(float[] v) {
+            count=v.length/3;
+            vertices=ByteBuffer.allocateDirect(v.length*4).order(ByteOrder.nativeOrder()).asFloatBuffer();
+            vertices.put(v).position(0);
+        }
+        void draw(int pos,int mvpLoc,int colorLoc,float[] mvp,float[] color) {
+            vertices.position(0);
+            GLES20.glEnableVertexAttribArray(pos);
+            GLES20.glVertexAttribPointer(pos,3,GLES20.GL_FLOAT,false,0,vertices);
+            GLES20.glUniformMatrix4fv(mvpLoc,1,false,mvp,0);
+            GLES20.glUniform4fv(colorLoc,1,color,0);
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,count);
+            GLES20.glDisableVertexAttribArray(pos);
+        }
+        static Mesh cube() {
+            float[] v={
+                    -.5f,-.5f,.5f, .5f,-.5f,.5f, .5f,.5f,.5f, -.5f,-.5f,.5f, .5f,.5f,.5f, -.5f,.5f,.5f,
+                    .5f,-.5f,-.5f, -.5f,-.5f,-.5f, -.5f,.5f,-.5f, .5f,-.5f,-.5f, -.5f,.5f,-.5f, .5f,.5f,-.5f,
+                    -.5f,-.5f,-.5f, -.5f,-.5f,.5f, -.5f,.5f,.5f, -.5f,-.5f,-.5f, -.5f,.5f,.5f, -.5f,.5f,-.5f,
+                    .5f,-.5f,.5f, .5f,-.5f,-.5f, .5f,.5f,-.5f, .5f,-.5f,.5f, .5f,.5f,-.5f, .5f,.5f,.5f,
+                    -.5f,.5f,.5f, .5f,.5f,.5f, .5f,.5f,-.5f, -.5f,.5f,.5f, .5f,.5f,-.5f, -.5f,.5f,-.5f,
+                    -.5f,-.5f,-.5f, .5f,-.5f,-.5f, .5f,-.5f,.5f, -.5f,-.5f,-.5f, .5f,-.5f,.5f, -.5f,-.5f,.5f
+            };
+            return new Mesh(v);
+        }
+        static Mesh sphere(int lat,int lon) {
+            float[] out=new float[lat*lon*6*3]; int k=0;
+            for(int i=0;i<lat;i++){
+                float a1=(float)(-Math.PI/2 + Math.PI*i/lat), a2=(float)(-Math.PI/2 + Math.PI*(i+1)/lat);
+                for(int j=0;j<lon;j++){
+                    float b1=(float)(2*Math.PI*j/lon), b2=(float)(2*Math.PI*(j+1)/lon);
+                    float[] p1={cos(a1)*cos(b1),sin(a1),cos(a1)*sin(b1)};
+                    float[] p2={cos(a2)*cos(b1),sin(a2),cos(a2)*sin(b1)};
+                    float[] p3={cos(a2)*cos(b2),sin(a2),cos(a2)*sin(b2)};
+                    float[] p4={cos(a1)*cos(b2),sin(a1),cos(a1)*sin(b2)};
+                    float[][] tri={p1,p2,p3,p1,p3,p4};
+                    for(float[] p:tri){out[k++]=p[0];out[k++]=p[1];out[k++]=p[2];}
+                }
+            }
+            return new Mesh(out);
+        }
+        static float sin(float a){return (float)Math.sin(a);} static float cos(float a){return (float)Math.cos(a);}
+    }
+
+    static class HudView extends View {
+        final GameState s;
+        final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+        float joyCx,joyCy,joyR;
+        int joyPointer=-1;
+        float knobX,knobY;
+
+        HudView(Context c,GameState state){super(c);s=state;setBackgroundColor(Color.TRANSPARENT);}
+
+        @Override protected void onDraw(Canvas c){
             super.onDraw(c);
-            if (getWidth() <= 0 || getHeight() <= 0) return;
-            if (screen == 1) drawCareer(c);
-            else if (screen == 2) drawTraining(c);
-            else if (screen == 3) {
-                updateMatch();
-                drawMatch(c);
-                postInvalidateOnAnimation();
-            } else if (screen == 4) drawProfile(c);
-            else drawHome(c);
-        }
-
-        private void text(Canvas c, String s, float x, float y, float size, int color) {
-            p.setShader(null); p.setStyle(Paint.Style.FILL); p.setColor(color); p.setTextSize(size); c.drawText(s, x, y, p);
-        }
-
-        private void round(Canvas c, RectF r, int color, float radius) {
-            p.setShader(null); p.setStyle(Paint.Style.FILL); p.setColor(color); c.drawRoundRect(r, radius, radius, p);
-        }
-
-        private void bg(Canvas c) {
-            int w = getWidth(), h = getHeight();
-            p.setShader(new LinearGradient(0, 0, w, h, Color.rgb(5, 16, 12), Color.rgb(9, 33, 23), Shader.TileMode.CLAMP));
-            c.drawRect(0, 0, w, h, p);
-            p.setShader(new RadialGradient(w * .88f, h * .12f, h * .52f, Color.argb(100, 180, 255, 70), Color.TRANSPARENT, Shader.TileMode.CLAMP));
-            c.drawCircle(w * .88f, h * .12f, h * .52f, p); p.setShader(null);
-        }
-
-        private void brand(Canvas c) {
-            text(c, "fut", 28, 51, 31, Color.WHITE); text(c, "REAL", 76, 51, 31, Color.rgb(204, 255, 83));
-            text(c, "MOBILE FOOTBALL", 30, 72, 10, Color.argb(180,255,255,255));
-        }
-
-        private void drawHome(Canvas c) {
-            bg(c); brand(c); float w = getWidth(), h = getHeight();
-            text(c, "CARREIRA EM JOGO", 32, h * .22f, 15, Color.rgb(204,255,83));
-            text(c, "O futebol e seu.", 32, h * .31f, 36, Color.WHITE);
-            text(c, "Construa seu jogador, vença partidas e vire uma estrela.", 32, h * .38f, 15, Color.LTGRAY);
-
-            RectF hero = new RectF(28, h * .44f, w * .39f, h - 26);
-            p.setShader(new LinearGradient(hero.left, hero.top, hero.right, hero.bottom, Color.rgb(20,63,42), Color.rgb(12,39,28), Shader.TileMode.CLAMP));
-            c.drawRoundRect(hero, 24, 24, p); p.setShader(null);
-            text(c, "NOX JR.", hero.left+20, hero.top+38, 25, Color.WHITE);
-            text(c, "ATA  |  OVR " + ovr(), hero.left+20, hero.top+68, 15, Color.rgb(204,255,83));
-            text(c, "Atlético Aurora", hero.left+20, hero.top+96, 14, Color.LTGRAY);
-            text(c, games + " jogos   " + goals + " gols", hero.left+20, hero.bottom-24, 14, Color.WHITE);
-
-            float sx = w * .43f, sy = h * .14f, gap = 14f;
-            float cw = (w - sx - 34 - gap) / 2f, ch = (h - sy - 36 - gap) / 2f;
-            career.set(sx, sy, sx+cw, sy+ch); quick.set(sx+cw+gap, sy, w-20, sy+ch);
-            train.set(sx, sy+ch+gap, sx+cw, h-20); profile.set(sx+cw+gap, sy+ch+gap, w-20, h-20);
-            menuCard(c, career, "MODO CARREIRA", "Temporada, tabela e evolução", true);
-            menuCard(c, quick, "PARTIDA RÁPIDA", "Câmera TV e IA dinâmica", false);
-            menuCard(c, train, "CENTRO DE TREINO", "Use pontos para evoluir", false);
-            menuCard(c, profile, "MEU JOGADOR", "Atributos e números", false);
-        }
-
-        private void menuCard(Canvas c, RectF r, String title, String sub, boolean hot) {
-            round(c, r, hot ? Color.rgb(25,68,44) : Color.rgb(15,45,32), 22);
-            text(c, hot ? "DESTAQUE" : "futREAL", r.left+18, r.top+30, 11, hot ? Color.rgb(204,255,83) : Color.argb(170,255,255,255));
-            text(c, title, r.left+18, r.centerY()+2, 18, Color.WHITE); text(c, sub, r.left+18, r.centerY()+28, 13, Color.LTGRAY);
-        }
-
-        private void drawBack(Canvas c) { back.set(20, 68, 90, 120); round(c, back, Color.rgb(18,49,35), 16); text(c, "<", 46, 105, 28, Color.WHITE); }
-
-        private void drawCareer(Canvas c) {
-            bg(c); brand(c); drawBack(c); float w=getWidth(), h=getHeight(); text(c, "MODO CARREIRA", 108, 103, 25, Color.WHITE);
-            RectF season = new RectF(28, 142, w * .58f, h - 26);
-            p.setShader(new LinearGradient(season.left, season.top, season.right, season.bottom, Color.rgb(17,56,38), Color.rgb(10,34,24), Shader.TileMode.CLAMP));
-            c.drawRoundRect(season, 24, 24, p); p.setShader(null);
-            text(c, "TEMPORADA 1", season.left+22, season.top+34, 14, Color.rgb(204,255,83));
-            text(c, "Atlético Aurora", season.left+22, season.top+76, 29, Color.WHITE);
-            text(c, "Liga Nacional • Rodada " + (games+1), season.left+22, season.top+104, 14, Color.LTGRAY);
-            text(c, "PTS", season.left+22, season.top+150, 12, Color.LTGRAY); text(c, String.valueOf(seasonPoints), season.left+22, season.top+184, 28, Color.WHITE);
-            text(c, "J", season.left+100, season.top+150, 12, Color.LTGRAY); text(c, String.valueOf(games), season.left+100, season.top+184, 28, Color.WHITE);
-            text(c, "V", season.left+160, season.top+150, 12, Color.LTGRAY); text(c, String.valueOf(wins), season.left+160, season.top+184, 28, Color.WHITE);
-            text(c, "GOLS", season.left+220, season.top+150, 12, Color.LTGRAY); text(c, String.valueOf(goals), season.left+220, season.top+184, 28, Color.WHITE);
-            nextMatch.set(season.left+22, season.bottom-58, season.right-22, season.bottom-16); round(c, nextMatch, Color.rgb(204,255,83), 16);
-            text(c, "JOGAR PRÓXIMA PARTIDA", nextMatch.left+20, nextMatch.centerY()+6, 15, Color.rgb(7,20,13));
-
-            RectF player = new RectF(w*.61f, 142, w-28, h-26); round(c, player, Color.rgb(13,42,30), 24);
-            text(c, "SEU JOGADOR", player.left+20, player.top+32, 13, Color.rgb(204,255,83)); text(c, "NOX JR.", player.left+20, player.top+70, 28, Color.WHITE);
-            text(c, "OVR " + ovr(), player.right-100, player.top+70, 22, Color.rgb(204,255,83)); text(c, "Fãs  " + fans, player.left+20, player.top+104, 14, Color.LTGRAY);
-            attr(c,"Velocidade",speed,player.left+20,player.top+148,player.width()-40); attr(c,"Finalização",shot,player.left+20,player.top+202,player.width()-40); attr(c,"Passe",pass,player.left+20,player.top+256,player.width()-40);
-        }
-
-        private void attr(Canvas c, String name, int value, float x, float y, float width) {
-            text(c,name,x,y,14,Color.WHITE); text(c,String.valueOf(value),x+width-28,y,14,Color.rgb(204,255,83));
-            RectF base = new RectF(x,y+10,x+width,y+19); round(c,base,Color.rgb(35,61,49),7);
-            RectF fill = new RectF(x,y+10,x+width*(value/99f),y+19); round(c,fill,Color.rgb(204,255,83),7);
-        }
-
-        private void drawTraining(Canvas c) {
-            bg(c); brand(c); drawBack(c); float w=getWidth(),h=getHeight(); text(c,"CENTRO DE TREINO",108,103,25,Color.WHITE);
-            text(c,"Pontos disponíveis: " + points,30,154,19,Color.rgb(204,255,83));
-            float gap=16, top=188, cw=(w-60-gap*2)/3f, bottom=h-26;
-            trainSpeed.set(30,top,30+cw,bottom); trainShot.set(30+cw+gap,top,30+cw*2+gap,bottom); trainPass.set(30+cw*2+gap*2,top,w-30,bottom);
-            trainingCard(c,trainSpeed,"VELOCIDADE",speed,"Arrancada, pique e recuperação"); trainingCard(c,trainShot,"FINALIZAÇÃO",shot,"Potência e precisão no chute"); trainingCard(c,trainPass,"PASSE",pass,"Passe curto e lançamento");
-        }
-
-        private void trainingCard(Canvas c, RectF r, String title, int value, String desc) {
-            round(c,r,Color.rgb(15,45,32),22); text(c,title,r.left+18,r.top+34,16,Color.WHITE); text(c,String.valueOf(value),r.left+18,r.top+82,36,Color.rgb(204,255,83));
-            text(c,desc,r.left+18,r.top+112,12,Color.LTGRAY); RectF b=new RectF(r.left+18,r.bottom-52,r.right-18,r.bottom-14);
-            round(c,b,points>0?Color.rgb(204,255,83):Color.DKGRAY,14); text(c,points>0?"+1 ATRIBUTO":"SEM PONTOS",b.left+14,b.centerY()+5,13,points>0?Color.rgb(7,20,13):Color.LTGRAY);
-        }
-
-        private void drawProfile(Canvas c) {
-            bg(c); brand(c); drawBack(c); float w=getWidth(),h=getHeight(); text(c,"MEU JOGADOR",108,103,25,Color.WHITE);
-            RectF card=new RectF(30,142,w*.40f,h-28); round(c,card,Color.rgb(17,54,37),24);
-            text(c,"NOX JR.",card.left+22,card.top+46,30,Color.WHITE); text(c,"ATACANTE • CAMISA 19",card.left+22,card.top+76,14,Color.rgb(204,255,83));
-            text(c,"OVR",card.left+22,card.top+128,12,Color.LTGRAY); text(c,String.valueOf(ovr()),card.left+22,card.top+175,42,Color.WHITE);
-            text(c,"Fãs",card.left+130,card.top+128,12,Color.LTGRAY); text(c,String.valueOf(fans),card.left+130,card.top+175,29,Color.WHITE);
-            RectF numbers=new RectF(w*.43f,142,w-30,h-28); round(c,numbers,Color.rgb(13,41,29),24); text(c,"CARREIRA",numbers.left+20,numbers.top+34,13,Color.rgb(204,255,83));
-            stat(c,"Jogos",games,numbers.left+20,numbers.top+82); stat(c,"Gols",goals,numbers.left+150,numbers.top+82); stat(c,"Vitórias",wins,numbers.left+280,numbers.top+82); stat(c,"Empates",draws,numbers.left+410,numbers.top+82);
-            attr(c,"Velocidade",speed,numbers.left+20,numbers.top+158,numbers.width()-40); attr(c,"Finalização",shot,numbers.left+20,numbers.top+214,numbers.width()-40); attr(c,"Passe",pass,numbers.left+20,numbers.top+270,numbers.width()-40);
-        }
-
-        private void stat(Canvas c,String label,int value,float x,float y){ text(c,label,x,y,12,Color.LTGRAY); text(c,String.valueOf(value),x,y+32,26,Color.WHITE); }
-
-        private void startMatch() {
-            screen=3; homeScore=0; awayScore=0; matchTime=0; stamina=1f; px=.50f; py=.78f; bx=.50f; by=.74f; bvx=bvy=0;
-            hasBall=true; passInFlight=false; passTarget=-1; sprint=false; joyX=joyY=0; lastNs=System.nanoTime(); lastStealNs=lastNs; invalidate();
-        }
-
-        private void updateMatch() {
-            long now=System.nanoTime(); float dt=Math.min(.033f,Math.max(.001f,(now-lastNs)/1_000_000_000f)); lastNs=now; matchTime += dt * 8.0f;
-            float staminaFactor=.68f + .32f*stamina; float move=(sprint?.36f:.235f)*(speed/72f)*staminaFactor;
-            px=clamp(px+joyX*move*dt,.06f,.94f); py=clamp(py+joyY*move*dt,.08f,.93f);
-            if(sprint && (Math.abs(joyX)+Math.abs(joyY)>.15f)) stamina=Math.max(0,stamina-dt*.055f); else stamina=Math.min(1f,stamina+dt*.022f);
-            animateAI(dt, now);
-
-            if(hasBall){ bx=px; by=py-.032f; }
-            else{
-                bx+=bvx*dt; by+=bvy*dt; float drag=(float)Math.pow(.36f,dt); bvx*=drag; bvy*=drag;
-                if(passInFlight && passTarget>=0){
-                    float d=dist(bx,by,mateX[passTarget],mateY[passTarget]);
-                    if(d<.045f){
-                        passInFlight=false;
-                        if(mateY[passTarget]<.34f){ bx=mateX[passTarget]; by=mateY[passTarget]-.02f; bvx=(.50f-bx)*1.45f; bvy=-.72f*(.82f+pass/160f); }
-                        else{ float dx=px-bx, dy=py-by; float len=Math.max(.001f,(float)Math.sqrt(dx*dx+dy*dy)); bvx=dx/len*.62f; bvy=dy/len*.62f; }
-                        passTarget=-1;
-                    }
-                }
-                if(dist(px,py,bx,by)<.045f && Math.abs(bvx)+Math.abs(bvy)<.62f){ hasBall=true; passInFlight=false; passTarget=-1; bvx=bvy=0; }
-            }
-
-            if(hasBall && now-lastStealNs > 650_000_000L){
-                for(int i=0;i<oppX.length;i++){
-                    if(dist(px,py,oppX[i],oppY[i])<.05f){
-                        float protection=.30f + pass/180f;
-                        if(random.nextFloat()>protection){ hasBall=false; passInFlight=false; passTarget=-1; bvx=(.5f-px)*.18f + (random.nextFloat()-.5f)*.12f; bvy=.62f; lastStealNs=now; }
-                        break;
-                    }
-                }
-            }
-
-            if(by<.045f && bx>.41f && bx<.59f){ homeScore++; goals++; resetKickoff(); }
-            else if(by>.955f && bx>.41f && bx<.59f){ awayScore++; resetKickoff(); }
-            else if(bx<.025f || bx>.975f || by<.015f || by>.985f){ resetBallNearUser(); }
-            if(matchTime>=90f) finishMatch();
-        }
-
-        private void animateAI(float dt, long now) {
-            float t=matchTime*.045f;
-            float[] defenseX={.16f,.34f,.66f,.84f}; float[] midX={.28f,.50f,.72f}; float[] attackX={.39f,.61f};
-            for(int i=0;i<mateX.length;i++){
-                float targetX,targetY;
-                if(i<4){ targetX=defenseX[i]; targetY=.78f-py*.08f; }
-                else if(i<7){ targetX=midX[i-4]; targetY=.56f-(1f-py)*.11f; }
-                else if(i<9){ targetX=attackX[i-7]+(float)Math.sin(t+i)*.04f; targetY=.36f-(1f-py)*.08f; }
-                else{ targetX=.50f+(float)Math.sin(t*.7f)*.10f; targetY=.18f; }
-                mateX[i]=lerp(mateX[i],targetX,dt*.7f); mateY[i]=lerp(mateY[i],targetY,dt*.7f);
-            }
-            int first=-1,second=-1; float d1=9,d2=9; float tx=hasBall?px:bx, ty=hasBall?py:by;
-            for(int i=0;i<oppX.length;i++){ float d=dist(oppX[i],oppY[i],tx,ty); if(d<d1){d2=d1;second=first;d1=d;first=i;} else if(d<d2){d2=d;second=i;} }
-            float[] baseXs={.15f,.34f,.50f,.66f,.85f,.25f,.44f,.58f,.76f,.40f,.60f}; float[] baseYs={.18f,.26f,.22f,.26f,.18f,.43f,.46f,.46f,.43f,.62f,.62f};
-            for(int i=0;i<oppX.length;i++){
-                float targetX=baseXs[i], targetY=baseYs[i];
-                if(i==first){ targetX=tx; targetY=ty+.012f; }
-                else if(i==second && ty<.70f){ targetX=lerp(baseXs[i],tx,.55f); targetY=lerp(baseYs[i],ty,.55f); }
-                oppX[i]=lerp(oppX[i],targetX,dt*(i==first?1.4f:.58f)); oppY[i]=lerp(oppY[i],targetY,dt*(i==first?1.4f:.58f));
-            }
-        }
-
-        private void resetKickoff(){
-            px=.50f;py=.78f;bx=.50f;by=.74f;bvx=bvy=0;hasBall=true;passInFlight=false;passTarget=-1;
-            float[] xs={.15f,.34f,.50f,.66f,.85f,.25f,.44f,.58f,.76f,.40f,.60f}; float[] ys={.18f,.26f,.22f,.26f,.18f,.43f,.46f,.46f,.43f,.62f,.62f};
-            for(int i=0;i<oppX.length;i++){ oppX[i]=xs[i]; oppY[i]=ys[i]; }
-        }
-
-        private void resetBallNearUser(){ bx=px;by=py-.035f;bvx=bvy=0;hasBall=true;passInFlight=false;passTarget=-1; }
-
-        private void finishMatch(){
-            games++;
-            if(homeScore>awayScore){ wins++; seasonPoints+=3; points+=2; fans+=180+homeScore*25; }
-            else if(homeScore==awayScore){ draws++; seasonPoints+=1; points+=1; fans+=65; }
-            else{ fans=Math.max(0,fans-30); points+=1; }
-            save(); screen=1; invalidate();
-        }
-
-        private void drawMatch(Canvas c){
             float w=getWidth(),h=getHeight();
-            p.setShader(new LinearGradient(0,0,0,h,Color.rgb(7,13,18),Color.rgb(12,28,21),Shader.TileMode.CLAMP)); c.drawRect(0,0,w,h,p); p.setShader(null);
-            p.setColor(Color.rgb(24,30,38)); c.drawRect(0,0,w,h*.115f,p); c.drawRect(0,h*.89f,w,h,p); drawCrowd(c,0,h*.02f,w,h*.095f,26); drawCrowd(c,0,h*.905f,w,h*.975f,24);
-            fieldL=w*.055f; fieldR=w*.945f; fieldT=h*.12f; fieldB=h*.89f;
-            p.setColor(Color.rgb(24,126,61)); c.drawRect(fieldL,fieldT,fieldR,fieldB,p);
-            for(int i=0;i<10;i++){ if(i%2==0){ p.setColor(Color.argb(25,255,255,255)); c.drawRect(fieldL+i*(fieldR-fieldL)/10f,fieldT,fieldL+(i+1)*(fieldR-fieldL)/10f,fieldB,p); } }
-            stroke.setColor(Color.argb(225,255,255,255)); stroke.setStrokeWidth(2.4f); c.drawRect(fieldL+2,fieldT+2,fieldR-2,fieldB-2,stroke);
-            float midY=mapY(.50f); c.drawLine(fieldL,midY,fieldR,midY,stroke); c.drawCircle(mapX(.50f),midY,(fieldR-fieldL)*.095f,stroke); c.drawCircle(mapX(.50f),midY,3.5f,pWhite());
-            drawBox(c,.30f,.00f,.70f,.16f); drawBox(c,.30f,.84f,.70f,1.00f); drawGoal(c,true); drawGoal(c,false);
+            joyCx=115; joyCy=h-115; joyR=78;
+            if(joyPointer<0){knobX=joyCx;knobY=joyCy;}
 
-            RectF score=new RectF(w*.35f,12,w*.65f,58); round(c,score,Color.argb(225,8,15,18),15);
-            text(c,"AUR",score.left+18,score.centerY()+6,14,Color.WHITE); text(c,homeScore+"  -  "+awayScore,score.centerX()-32,score.centerY()+7,20,Color.WHITE); text(c,"RIV",score.right-47,score.centerY()+6,14,Color.WHITE); text(c,String.format("%02d'",Math.min(90,(int)matchTime)),score.right+12,score.centerY()+6,15,Color.WHITE);
+            p.setStyle(Paint.Style.FILL); p.setColor(Color.argb(185,5,12,18));
+            c.drawRoundRect(w*.36f,18,w*.64f,82,18,18,p);
+            text(c,"AUR  "+s.homeScore+"  -  "+s.awayScore+"  VIL",w*.43f,55,23,Color.WHITE);
+            text(c,String.format("%02d'",(int)s.minute),w*.37f,55,18,Color.rgb(205,255,85));
+            text(c,"futREAL 3D",22,42,22,Color.WHITE);
+            text(c,"BROADCAST CAM",22,66,12,Color.rgb(205,255,85));
 
-            for(int i=0;i<mateX.length;i++) drawPlayer(c,mateX[i],mateY[i],Color.rgb(225,236,244),Color.rgb(24,64,110),false,i==9);
-            for(int i=0;i<oppX.length;i++) drawPlayer(c,oppX[i],oppY[i],Color.rgb(235,62,68),Color.rgb(128,20,30),false,i<1);
-            drawKeeper(c,.50f,.055f,Color.rgb(251,197,49)); drawKeeper(c,.50f,.945f,Color.rgb(59,179,246)); drawPlayer(c,px,py,Color.WHITE,Color.rgb(16,87,46),true,false);
+            p.setColor(Color.argb(85,255,255,255)); c.drawCircle(joyCx,joyCy,joyR,p);
+            p.setColor(Color.argb(165,205,255,85)); c.drawCircle(knobX,knobY,32,p);
 
-            float sx=mapX(bx), sy=mapY(by); p.setColor(Color.argb(80,0,0,0)); c.drawOval(new RectF(sx-8,sy+5,sx+8,sy+10),p); p.setColor(Color.WHITE); c.drawCircle(sx,sy,6.5f,p); p.setColor(Color.rgb(35,35,35)); c.drawCircle(sx+2,sy-1,2.2f,p);
-            drawMiniMap(c); drawControls(c); drawStamina(c);
+            float shootX=w-105,shootY=h-155,shootR=62;
+            float passX=w-240,passY=h-100,passR=52;
+            float sprintX=w-270,sprintY=h-220,sprintR=45;
+            button(c,shootX,shootY,shootR,"CHUTE",Color.argb(205,205,255,85),Color.rgb(5,20,12));
+            button(c,passX,passY,passR,"PASSE",Color.argb(190,255,255,255),Color.rgb(8,22,30));
+            button(c,sprintX,sprintY,sprintR,"SPRINT",Color.argb(s.sprint?220:120,60,180,255),Color.WHITE);
+
+            float barW=170, x=w-205, y=26;
+            p.setColor(Color.argb(160,5,10,15)); c.drawRoundRect(x,y,x+barW,y+18,9,9,p);
+            p.setColor(Color.rgb(205,255,85)); c.drawRoundRect(x,y,x+barW*(s.stamina/100f),y+18,9,9,p);
+            text(c,"STAMINA",x-66,y+15,12,Color.WHITE);
+
+            drawMiniMap(c,w*.50f,h-55,145,36);
+            postInvalidateOnAnimation();
         }
 
-        private Paint pWhite(){ p.setShader(null);p.setStyle(Paint.Style.FILL);p.setColor(Color.WHITE);return p; }
-
-        private void drawCrowd(Canvas c,float l,float t,float r,float b,int rows){
-            float w=r-l,h=b-t; for(int i=0;i<rows*8;i++){ float x=l+(i%(rows*2))*w/(rows*2f)+(i%3)*2; float y=t+(i/(rows*2))*h/4f; int col=(i%5==0)?Color.rgb(204,255,83):(i%3==0?Color.LTGRAY:Color.rgb(72,82,92)); p.setColor(col); c.drawCircle(x,y,1.6f,p); }
+        private void drawMiniMap(Canvas c,float cx,float cy,float mw,float mh){
+            p.setColor(Color.argb(150,3,25,12)); c.drawRoundRect(cx-mw/2,cy-mh/2,cx+mw/2,cy+mh/2,8,8,p);
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1.5f); p.setColor(Color.argb(170,255,255,255));
+            c.drawRect(cx-mw/2+3,cy-mh/2+3,cx+mw/2-3,cy+mh/2-3,p); p.setStyle(Paint.Style.FILL);
+            dot(c,cx+s.playerX/68f*mw,cy+s.playerZ/105f*mh,4,Color.rgb(205,255,85));
+            for(float[] q:s.mates) dot(c,cx+q[0]/68f*mw,cy+q[1]/105f*mh,3,Color.CYAN);
+            for(float[] q:s.opponents) dot(c,cx+q[0]/68f*mw,cy+q[1]/105f*mh,3,Color.RED);
         }
+        private void dot(Canvas c,float x,float y,float r,int col){p.setColor(col);c.drawCircle(x,y,r,p);}
+        private void button(Canvas c,float x,float y,float r,String label,int bg,int fg){p.setColor(bg);c.drawCircle(x,y,r,p);textCenter(c,label,x,y+5,14,fg);}
+        private void text(Canvas c,String t,float x,float y,float size,int col){p.setColor(col);p.setTextSize(size);p.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);c.drawText(t,x,y,p);}
+        private void textCenter(Canvas c,String t,float x,float y,float size,int col){p.setColor(col);p.setTextSize(size);p.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);c.drawText(t,x,y,p);p.setTextAlign(Paint.Align.LEFT);}
 
-        private void drawBox(Canvas c,float x1,float y1,float x2,float y2){ c.drawRect(mapX(x1),mapY(y1),mapX(x2),mapY(y2),stroke); }
-
-        private void drawGoal(Canvas c,boolean top){
-            float x1=mapX(.42f),x2=mapX(.58f); float y=top?fieldT:fieldB; float d=top?-13:13; stroke.setColor(Color.WHITE);stroke.setStrokeWidth(2f); c.drawRect(x1,y+(top?d:0),x2,y+(top?0:d),stroke);
-            for(int i=1;i<5;i++){ float x=x1+(x2-x1)*i/5f; c.drawLine(x,y,x,y+d,stroke); }
-        }
-
-        private void drawPlayer(Canvas c,float nx,float ny,int shirt,int shorts,boolean selected,boolean captain){
-            float x=mapX(nx), y=mapY(ny), scale=.82f + ny*.26f;
-            if(selected){ p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2.5f);p.setColor(Color.rgb(204,255,83)); c.drawCircle(x,y+2,15*scale,p);p.setStyle(Paint.Style.FILL); Path tri=new Path();tri.moveTo(x,y-28*scale);tri.lineTo(x-6,y-36*scale);tri.lineTo(x+6,y-36*scale);tri.close(); p.setColor(Color.rgb(204,255,83));c.drawPath(tri,p); }
-            p.setColor(Color.argb(65,0,0,0));c.drawOval(new RectF(x-9*scale,y+10*scale,x+9*scale,y+15*scale),p); p.setColor(Color.rgb(219,173,128));c.drawCircle(x,y-10*scale,5*scale,p);
-            p.setColor(shirt);c.drawRoundRect(new RectF(x-7*scale,y-5*scale,x+7*scale,y+8*scale),4,4,p); p.setColor(shorts);c.drawRect(x-6*scale,y+6*scale,x+6*scale,y+11*scale,p);
-            p.setStrokeWidth(2.2f*scale); p.setColor(Color.rgb(225,225,225)); c.drawLine(x-4*scale,y+11*scale,x-5*scale,y+18*scale,p); c.drawLine(x+4*scale,y+11*scale,x+5*scale,y+18*scale,p);
-            if(captain){ p.setColor(Color.rgb(255,210,42)); c.drawRect(x+5*scale,y-2*scale,x+8*scale,y+3*scale,p); }
-        }
-
-        private void drawKeeper(Canvas c,float nx,float ny,int shirt){ drawPlayer(c,nx,ny,shirt,Color.rgb(24,38,48),false,true); }
-
-        private void drawMiniMap(Canvas c){
-            float w=getWidth(),h=getHeight(); RectF m=new RectF(w*.445f,h-72,w*.555f,h-14); round(c,m,Color.argb(170,4,13,9),10);
-            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1);p.setColor(Color.argb(160,255,255,255));c.drawRect(m.left+4,m.top+4,m.right-4,m.bottom-4,p); p.setStyle(Paint.Style.FILL);
-            for(int i=0;i<mateX.length;i++){p.setColor(Color.WHITE);c.drawCircle(m.left+4+mateX[i]*(m.width()-8),m.top+4+mateY[i]*(m.height()-8),1.7f,p);} for(int i=0;i<oppX.length;i++){p.setColor(Color.rgb(239,68,68));c.drawCircle(m.left+4+oppX[i]*(m.width()-8),m.top+4+oppY[i]*(m.height()-8),1.7f,p);} p.setColor(Color.rgb(204,255,83));c.drawCircle(m.left+4+px*(m.width()-8),m.top+4+py*(m.height()-8),2.4f,p);
-        }
-
-        private void drawStamina(Canvas c){
-            text(c,"NOX JR.",24,83,12,Color.WHITE); RectF base=new RectF(24,91,164,99);round(c,base,Color.argb(140,0,0,0),5); RectF fill=new RectF(24,91,24+140*stamina,99);round(c,fill,stamina>.3f?Color.rgb(204,255,83):Color.rgb(255,124,65),5);
-        }
-
-        private void drawControls(Canvas c){
-            float w=getWidth(),h=getHeight(); float jx=w*.12f,jy=h*.75f,jr=Math.min(w,h)*.105f; p.setColor(Color.argb(70,255,255,255));c.drawCircle(jx,jy,jr,p); p.setColor(Color.argb(115,255,255,255));c.drawCircle(jx+joyX*jr*.55f,jy+joyY*jr*.55f,jr*.36f,p);
-            float br=Math.min(w,h)*.072f; shootBtn.set(w*.86f-br,h*.64f-br,w*.86f+br,h*.64f+br); passBtn.set(w*.76f-br,h*.77f-br,w*.76f+br,h*.77f+br); sprintBtn.set(w*.91f-br,h*.83f-br,w*.91f+br,h*.83f+br);
-            circleButton(c,shootBtn,hasBall?"CHUTE":"PRESS",Color.rgb(204,255,83),Color.rgb(7,20,13)); circleButton(c,passBtn,hasBall?"PASSE":"TROCA",Color.argb(210,255,255,255),Color.rgb(15,28,22)); circleButton(c,sprintBtn,sprint?"PIQUE ON":"PIQUE",Color.argb(185,28,44,38),Color.WHITE);
-        }
-
-        private void circleButton(Canvas c,RectF r,String label,int color,int tc){ p.setStyle(Paint.Style.FILL);p.setColor(color);c.drawOval(r,p); p.setTextSize(11);p.setColor(tc); float tw=p.measureText(label); c.drawText(label,r.centerX()-tw/2,r.centerY()+4,p); }
-
-        private void shoot(){ if(!hasBall)return; hasBall=false;passInFlight=false;passTarget=-1; bvx=(.50f-px)*1.25f + (random.nextFloat()-.5f)*(.30f-(shot/500f)); bvy=-(.72f + shot/150f); }
-
-        private void passBall(){
-            if(!hasBall)return; int best=-1;float bestScore=99;
-            for(int i=0;i<mateX.length;i++){ if(mateY[i]>py+.08f)continue; float d=dist(px,py,mateX[i],mateY[i]); float score=d + mateY[i]*.12f; if(score<bestScore && d>.08f){bestScore=score;best=i;} }
-            if(best<0){ for(int i=0;i<mateX.length;i++){ float d=dist(px,py,mateX[i],mateY[i]); if(d<bestScore && d>.08f){bestScore=d;best=i;} } }
-            if(best>=0){ hasBall=false;passInFlight=true;passTarget=best; float dx=mateX[best]-bx,dy=mateY[best]-by; float len=Math.max(.001f,(float)Math.sqrt(dx*dx+dy*dy)); float power=.58f + pass/210f; bvx=dx/len*power;bvy=dy/len*power; }
-        }
-
-        @Override
-        public boolean onTouchEvent(MotionEvent e){
-            float x=e.getX(),y=e.getY(),w=getWidth(); int action=e.getActionMasked();
+        @Override public boolean onTouchEvent(MotionEvent e){
+            int action=e.getActionMasked(); int idx=e.getActionIndex();
             if(action==MotionEvent.ACTION_DOWN || action==MotionEvent.ACTION_POINTER_DOWN){
-                if(screen==0){ if(career.contains(x,y))screen=1; else if(quick.contains(x,y))startMatch(); else if(train.contains(x,y))screen=2; else if(profile.contains(x,y))screen=4; invalidate();return true; }
-                if(screen==1){ if(back.contains(x,y))screen=0; else if(nextMatch.contains(x,y))startMatch(); invalidate();return true; }
-                if(screen==2){ if(back.contains(x,y)){screen=0;invalidate();return true;} if(points>0){ if(trainSpeed.contains(x,y)){speed=Math.min(99,speed+1);points--;save();} else if(trainShot.contains(x,y)){shot=Math.min(99,shot+1);points--;save();} else if(trainPass.contains(x,y)){pass=Math.min(99,pass+1);points--;save();} invalidate();return true; } }
-                if(screen==4){ if(back.contains(x,y)){screen=0;invalidate();} return true; }
-                if(screen==3){ if(shootBtn.contains(x,y)){shoot();return true;} if(passBtn.contains(x,y)){passBall();return true;} if(sprintBtn.contains(x,y)){sprint=!sprint;return true;} if(x<w*.36f){updateJoy(x,y);return true;} }
-            } else if(action==MotionEvent.ACTION_MOVE && screen==3){ if(x<w*.38f){updateJoy(x,y);return true;} }
-            else if((action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL) && screen==3){ if(x<w*.42f){joyX=joyY=0;} return true; }
-            return true;
+                float x=e.getX(idx),y=e.getY(idx); int id=e.getPointerId(idx);
+                if(x<getWidth()*.43f && y>getHeight()*.42f && joyPointer<0){joyPointer=id;updateJoy(x,y);}
+                else handleButtonDown(x,y);
+            } else if(action==MotionEvent.ACTION_MOVE){
+                boolean sprintHeld=false;
+                for(int i=0;i<e.getPointerCount();i++){
+                    int id=e.getPointerId(i); float x=e.getX(i),y=e.getY(i);
+                    if(id==joyPointer) updateJoy(x,y);
+                    if(inCircle(x,y,getWidth()-270,getHeight()-220,58)) sprintHeld=true;
+                }
+                s.sprint=sprintHeld;
+            } else if(action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_POINTER_UP || action==MotionEvent.ACTION_CANCEL){
+                int id=e.getPointerId(idx);
+                if(id==joyPointer){joyPointer=-1;s.joyX=s.joyY=0;knobX=joyCx;knobY=joyCy;}
+                if(action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL) s.sprint=false;
+            }
+            invalidate(); return true;
         }
-
-        private void updateJoy(float x,float y){ float cx=getWidth()*.12f,cy=getHeight()*.75f,r=Math.min(getWidth(),getHeight())*.105f; float dx=x-cx,dy=y-cy,len=(float)Math.sqrt(dx*dx+dy*dy); if(len>r){dx=dx/len*r;dy=dy/len*r;} joyX=clamp(dx/r,-1,1);joyY=clamp(dy/r,-1,1); }
-        private float mapX(float nx){return fieldL+nx*(fieldR-fieldL);} private float mapY(float ny){return fieldT+ny*(fieldB-fieldT);} private float clamp(float v,float lo,float hi){return Math.max(lo,Math.min(hi,v));}
-        private float dist(float x1,float y1,float x2,float y2){float dx=x1-x2,dy=y1-y2;return (float)Math.sqrt(dx*dx+dy*dy);} private float lerp(float a,float b,float t){return a+(b-a)*Math.max(0,Math.min(1,t));}
+        private void handleButtonDown(float x,float y){
+            float w=getWidth(),h=getHeight();
+            if(inCircle(x,y,w-105,h-155,78)) s.shootRequest=true;
+            else if(inCircle(x,y,w-240,h-100,68)) s.passRequest=true;
+            else if(inCircle(x,y,w-270,h-220,62)) s.sprint=true;
+        }
+        private void updateJoy(float x,float y){
+            float dx=x-joyCx,dy=y-joyCy,d=(float)Math.sqrt(dx*dx+dy*dy);
+            if(d>joyR){dx=dx/d*joyR;dy=dy/d*joyR;}
+            knobX=joyCx+dx;knobY=joyCy+dy;s.joyX=dx/joyR;s.joyY=dy/joyR;
+        }
+        private static boolean inCircle(float x,float y,float cx,float cy,float r){float dx=x-cx,dy=y-cy;return dx*dx+dy*dy<=r*r;}
     }
 }
