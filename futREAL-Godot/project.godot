@@ -1,5 +1,5 @@
-; futREAL 5.1 - Godot 4
-; Base 3D original para Android com modo de compatibilidade
+; futREAL 5.2 - Godot 4
+; Android fullscreen landscape fix
 
 config_version=5
 
@@ -14,7 +14,8 @@ boot_splash/show_image=false
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
-window/handheld/orientation=1
+window/stretch/aspect="expand"
+window/handheld/orientation=0
 
 [rendering]
 renderer/rendering_method="gl_compatibility"
