@@ -12,8 +12,8 @@ func _ready() -> void:
 	queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
-	var center := size * 0.5
-	var radius := min(size.x, size.y) * 0.36
+	var center: Vector2 = size * 0.5
+	var radius: float = float(min(size.x, size.y)) * 0.36
 	if event is InputEventScreenTouch:
 		if event.pressed and active_pointer == -1:
 			active_pointer = event.index
@@ -41,7 +41,7 @@ func _gui_input(event: InputEvent) -> void:
 		_update_value(event.position, center, radius)
 
 func _update_value(pos: Vector2, center: Vector2, radius: float) -> void:
-	var delta := pos - center
+	var delta: Vector2 = pos - center
 	if delta.length() > radius:
 		delta = delta.normalized() * radius
 	knob = delta
@@ -50,8 +50,8 @@ func _update_value(pos: Vector2, center: Vector2, radius: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	var center := size * 0.5
-	var radius := min(size.x, size.y) * 0.36
+	var center: Vector2 = size * 0.5
+	var radius: float = float(min(size.x, size.y)) * 0.36
 	draw_circle(center, radius, Color(1,1,1,0.12))
 	draw_circle(center, radius * 0.64, Color(0.04,0.10,0.07,0.32))
 	draw_circle(center + knob, radius * 0.32, Color(0.78,1.0,0.30,0.88))
