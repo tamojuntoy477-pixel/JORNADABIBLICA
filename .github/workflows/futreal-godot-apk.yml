@@ -46,11 +46,46 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android Debug,O=futREAL,C=BR"
 
+      - name: Configure Godot Android paths
+        shell: bash
+        run: |
+          PRESET="$GITHUB_WORKSPACE/futREAL-Godot/export_presets.cfg"
+          sed -i "s|keystore/debug=\"\"|keystore/debug=\"$GITHUB_WORKSPACE/debug.keystore\"|" "$PRESET"
+
+          SETTINGS="$HOME/.config/godot/editor_settings-4.3.tres"
+          if [ ! -f "$SETTINGS" ]; then
+            SETTINGS="$(find "$HOME/.config/godot" -maxdepth 1 -name 'editor_settings*.tres' | head -n 1)"
+          fi
+          if [ -z "$SETTINGS" ] || [ ! -f "$SETTINGS" ]; then
+            echo "Godot editor settings file not found"
+            exit 1
+          fi
+
+          set_editor_path() {
+            KEY="$1"
+            VALUE="$2"
+            if grep -q "^${KEY} =" "$SETTINGS"; then
+              sed -i "s|^${KEY} =.*|${KEY} = \"${VALUE}\"|" "$SETTINGS"
+            else
+              printf '%s = "%s"\n' "$KEY" "$VALUE" >> "$SETTINGS"
+            fi
+          }
+
+          set_editor_path "export/android/android_sdk_path" "$ANDROID_HOME"
+          set_editor_path "export/android/java_sdk_path" "/usr/lib/jvm/java-17-openjdk-amd64"
+          set_editor_path "export/android/debug_keystore" "$GITHUB_WORKSPACE/debug.keystore"
+          set_editor_path "export/android/debug_keystore_user" "androiddebugkey"
+          set_editor_path "export/android/debug_keystore_pass" "android"
+
+          echo "Android export settings:"
+          grep -E '^export/android/(android_sdk_path|java_sdk_path|debug_keystore)' "$SETTINGS" || true
+          grep -E '^keystore/debug' "$PRESET" || true
+
       - name: Validate and import project
         shell: bash
         run: |
           set -o pipefail
-          godot --headless --editor --path "$GITHUB_WORKSPACE/futREAL-Godot" --quit 2>&1 | tee /tmp/godot-import.log
+          godot --headless --verbose --editor --path "$GITHUB_WORKSPACE/futREAL-Godot" --quit 2>&1 | tee /tmp/godot-import.log
           if grep -q "SCRIPT ERROR: Parse Error" /tmp/godot-import.log; then
             echo "Godot script parse error detected"
             exit 1
@@ -62,7 +97,7 @@ jobs:
           export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$GITHUB_WORKSPACE/debug.keystore"
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER="androiddebugkey"
           export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="android"
-          godot --headless --path "$GITHUB_WORKSPACE/futREAL-Godot" --export-debug "Android" "$GITHUB_WORKSPACE/build/futREAL-v5.apk"
+          godot --headless --verbose --path "$GITHUB_WORKSPACE/futREAL-Godot" --export-debug "Android" "$GITHUB_WORKSPACE/build/futREAL-v5.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
