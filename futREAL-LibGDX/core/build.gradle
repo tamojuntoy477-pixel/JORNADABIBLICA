@@ -7,6 +7,14 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+sourceSets {
+    main {
+        java {
+            exclude 'com/nox/futreal/FutRealGame.java'
+        }
+    }
+}
+
 dependencies {
     api "com.badlogicgames.gdx:gdx:${gdxVersion}"
 }
