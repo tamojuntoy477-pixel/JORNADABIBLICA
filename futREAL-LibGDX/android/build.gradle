@@ -12,8 +12,8 @@ android {
         applicationId 'com.nox.futreal'
         minSdk 23
         targetSdk 35
-        versionCode 6
-        versionName '11.0-rebuild-libgdx'
+        versionCode 7
+        versionName '12.0-match-rebuild-libgdx'
     }
 
     sourceSets {
@@ -56,23 +56,32 @@ tasks.register('copyAndroidNatives') {
     }
 }
 
+// Pinned CC0 rigged footballer used by futREAL 12. The source model has
+// separate Shirt/Shirt2/Pants/Socks/Shoes materials and embedded Idle/Walk/Run
+// clips, so the Android build can ship a real kit instead of the v11 shirtless
+// superhero base. Source license: CC0 1.0 (Quaternius).
 tasks.register('fetchHighFidelityAssets') {
     doLast {
         def dir = file('../assets/characters')
         dir.mkdirs()
+
+        // Keep only the asset used by the active v12 runtime so the APK stays lean.
+        fileTree(dir: dir, include: ['night-striker.glb', 'universal-animation-library.glb']).each { it.delete() }
+
         def files = [
-            'night-striker.glb': 'https://raw.githubusercontent.com/Seyamalam/blood-league-kickoff/main/public/assets/vendor/quaternius/night-striker.glb',
-            'universal-animation-library.glb': 'https://raw.githubusercontent.com/Seyamalam/blood-league-kickoff/main/public/assets/vendor/quaternius/universal-animation-library.glb'
+            'football-player.glb': 'https://raw.githubusercontent.com/kendrekaran/striker-3d/57847f87ff3d924712a1bb37df9dae391aedc315/assets/player.glb',
+            'LICENSE-football-player.txt': 'https://raw.githubusercontent.com/kendrekaran/striker-3d/57847f87ff3d924712a1bb37df9dae391aedc315/assets/LICENSE-quaternius.txt'
         ]
         files.each { name, source ->
             def target = new File(dir, name)
-            if (!target.exists() || target.length() < 100000L) {
+            if (!target.exists() || target.length() < (name.endsWith('.glb') ? 100000L : 100L)) {
                 logger.lifecycle("Downloading CC0 futREAL asset: ${name}")
                 new URL(source).withInputStream { input ->
                     target.withOutputStream { output -> output << input }
                 }
             }
-            if (!target.exists() || target.length() < 100000L) {
+            long minBytes = name.endsWith('.glb') ? 100000L : 100L
+            if (!target.exists() || target.length() < minBytes) {
                 throw new GradleException("High-fidelity asset download failed: ${name}")
             }
         }
