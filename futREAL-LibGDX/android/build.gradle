@@ -12,8 +12,8 @@ android {
         applicationId 'com.nox.futreal'
         minSdk 23
         targetSdk 35
-        versionCode 5
-        versionName '10.0-ultra-libgdx'
+        versionCode 6
+        versionName '11.0-rebuild-libgdx'
     }
 
     sourceSets {
@@ -56,4 +56,27 @@ tasks.register('copyAndroidNatives') {
     }
 }
 
-preBuild.dependsOn copyAndroidNatives
+tasks.register('fetchHighFidelityAssets') {
+    doLast {
+        def dir = file('../assets/characters')
+        dir.mkdirs()
+        def files = [
+            'night-striker.glb': 'https://raw.githubusercontent.com/Seyamalam/blood-league-kickoff/main/public/assets/vendor/quaternius/night-striker.glb',
+            'universal-animation-library.glb': 'https://raw.githubusercontent.com/Seyamalam/blood-league-kickoff/main/public/assets/vendor/quaternius/universal-animation-library.glb'
+        ]
+        files.each { name, source ->
+            def target = new File(dir, name)
+            if (!target.exists() || target.length() < 100000L) {
+                logger.lifecycle("Downloading CC0 futREAL asset: ${name}")
+                new URL(source).withInputStream { input ->
+                    target.withOutputStream { output -> output << input }
+                }
+            }
+            if (!target.exists() || target.length() < 100000L) {
+                throw new GradleException("High-fidelity asset download failed: ${name}")
+            }
+        }
+    }
+}
+
+preBuild.dependsOn copyAndroidNatives, fetchHighFidelityAssets
