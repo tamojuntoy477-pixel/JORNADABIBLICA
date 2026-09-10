@@ -15,6 +15,6 @@ public class AndroidLauncher extends AndroidApplication {
         config.useCompass = false;
         config.useGyroscope = false;
         config.numSamples = 4;
-        initialize(new FutRealV11Game(), config);
+        initialize(new FutRealV12Game(), config);
     }
 }
