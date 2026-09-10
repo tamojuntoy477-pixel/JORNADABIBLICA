@@ -12,8 +12,8 @@ android {
         applicationId 'com.nox.futreal'
         minSdk 23
         targetSdk 35
-        versionCode 7
-        versionName '12.0-match-rebuild-libgdx'
+        versionCode 8
+        versionName '13.0-premium-match-libgdx'
     }
 
     sourceSets {
@@ -56,16 +56,14 @@ tasks.register('copyAndroidNatives') {
     }
 }
 
-// Pinned CC0 rigged footballer used by futREAL 12. The source model has
-// separate Shirt/Shirt2/Pants/Socks/Shoes materials and embedded Idle/Walk/Run
-// clips, so the Android build can ship a real kit instead of the v11 shirtless
-// superhero base. Source license: CC0 1.0 (Quaternius).
+// Pinned CC0 rigged footballer used by the active futREAL premium runtime.
+// The source model has separate Shirt/Shirt2/Pants/Socks/Shoes materials and
+// embedded skeletal clips. Source license: CC0 1.0 (Quaternius).
 tasks.register('fetchHighFidelityAssets') {
     doLast {
         def dir = file('../assets/characters')
         dir.mkdirs()
 
-        // Keep only the asset used by the active v12 runtime so the APK stays lean.
         fileTree(dir: dir, include: ['night-striker.glb', 'universal-animation-library.glb']).each { it.delete() }
 
         def files = [
