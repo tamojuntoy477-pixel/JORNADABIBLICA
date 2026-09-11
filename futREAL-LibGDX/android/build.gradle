@@ -12,8 +12,8 @@ android {
         applicationId 'com.nox.futreal'
         minSdk 23
         targetSdk 35
-        versionCode 10
-        versionName '15.0-day2-ball-control-libgdx'
+        versionCode 11
+        versionName '16.0-day3-football-animations-libgdx'
     }
 
     sourceSets {
