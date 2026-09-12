@@ -14,7 +14,8 @@ public class AndroidLauncher extends AndroidApplication {
         config.useAccelerometer = false;
         config.useCompass = false;
         config.useGyroscope = false;
-        config.numSamples = 4;
-        initialize(new FutRealV16Day3Game(), config);
+        // 2x MSAA keeps edges clean while reducing fill-rate cost on low/mid Android phones.
+        config.numSamples = 2;
+        initialize(new FutRealV23Day10FinalGame(), config);
     }
 }
