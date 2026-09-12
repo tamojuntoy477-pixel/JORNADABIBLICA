@@ -2,7 +2,10 @@ package com.nox.futreal;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.VertexAttributes;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g3d.Environment;
 import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
@@ -10,6 +13,8 @@ import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Array;
 
 import net.mgsx.gltf.scene3d.lights.DirectionalLightEx;
@@ -28,11 +33,19 @@ import java.lang.reflect.Field;
 public class FutRealV23Day10FinalGame extends FutRealV16Day3Game {
     private ModelBuilder finalBuilder;
     private boolean finalReady;
+    private ShapeRenderer finalShapes;
+    private SpriteBatch finalBatch;
+    private BitmapFont finalFont;
+    private final Matrix4 finalUi = new Matrix4();
 
     @Override
     public void create() {
         super.create();
         finalBuilder = new ModelBuilder();
+        finalShapes = new ShapeRenderer();
+        finalBatch = new SpriteBatch();
+        finalFont = new BitmapFont();
+        finalFont.getData().setScale(0.72f);
         try {
             buildFinalStadium();
             tuneLighting();
@@ -99,7 +112,7 @@ public class FutRealV23Day10FinalGame extends FutRealV16Day3Game {
                 ((z / 12) & 1) == 0 ? cyan : lime, attrs);
         }
 
-        // Small tunnel/bench mass on the near-far sideline for less empty space.
+        // Small tunnel/bench mass on the far sideline for less empty space.
         addBox(owned, stadium, -37.5f, 1.15f, 19f, 3.2f, 2.3f, 15f, upper, attrs);
         addBox(owned, stadium, -37.5f, 1.15f, -19f, 3.2f, 2.3f, 15f, upper, attrs);
     }
@@ -140,8 +153,6 @@ public class FutRealV23Day10FinalGame extends FutRealV16Day3Game {
     }
 
     private void tunePlayerScale() {
-        // Day 1 already increased presence. Add only a tiny final nudge so players
-        // remain believable instead of becoming oversized arcade figures.
         try {
             Field scaleField = field(FutRealV12Game.class, "modelScale");
             float scale = scaleField.getFloat(this);
@@ -149,7 +160,55 @@ public class FutRealV23Day10FinalGame extends FutRealV16Day3Game {
         } catch (Throwable ignored) { }
     }
 
+    private boolean isMatch() {
+        try {
+            Field f = field(FutRealV7Game.class, "screen");
+            Object screen = f.get(this);
+            return screen != null && "MATCH".equals(screen.toString());
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    @Override
+    public void render() {
+        super.render();
+        if (!finalReady || !isMatch()) return;
+        drawFinalBadge();
+    }
+
+    private void drawFinalBadge() {
+        int w = Gdx.graphics.getWidth();
+        int h = Gdx.graphics.getHeight();
+        finalUi.setToOrtho2D(0f, 0f, w, h);
+        finalShapes.setProjectionMatrix(finalUi);
+        finalBatch.setProjectionMatrix(finalUi);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        // Covers the inherited Day-3 badge with the final build identity.
+        finalShapes.begin(ShapeRenderer.ShapeType.Filled);
+        finalShapes.setColor(0.003f, 0.009f, 0.014f, 0.98f);
+        finalShapes.rect(8f, h - 46f, 174f, 35f);
+        finalShapes.setColor(0.62f, 1f, 0.10f, 1f);
+        finalShapes.rect(8f, h - 14f, 174f, 3f);
+        finalShapes.end();
+
+        finalBatch.begin();
+        finalFont.setColor(Color.WHITE);
+        finalFont.draw(finalBatch, "futREAL  DAY 10 FINAL", 18f, h - 23f);
+        finalBatch.end();
+    }
+
     public boolean isFinalReady() {
         return finalReady;
+    }
+
+    @Override
+    public void dispose() {
+        if (finalShapes != null) finalShapes.dispose();
+        if (finalBatch != null) finalBatch.dispose();
+        if (finalFont != null) finalFont.dispose();
+        super.dispose();
     }
 }
