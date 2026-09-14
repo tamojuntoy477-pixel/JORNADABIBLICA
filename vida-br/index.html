@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10131f">
+<title>Vida BR — Jogo de escolhas</title>
+<meta name="description" content="Um jogo brasileiro de escolhas de vida com cidades reais do mundo.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%236c5ce7'/%3E%3Cpath d='M18 17h10l4 17 4-17h10L37 48H27z' fill='white'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#0f1119;--panel:#181b27;--panel2:#202435;--text:#f7f7fb;--muted:#a8aec2;--line:#30354a;--purple:#7667f4;--purple2:#988cff;--yellow:#ffcc4d;--green:#45d483;--blue:#4bb7ff;--red:#ff657a;--orange:#ff9257;--shadow:0 18px 48px #05060a88}
+*{box-sizing:border-box}html{background:var(--bg);color-scheme:dark}body{margin:0;font-family:Inter,ui-rounded,"SF Pro Rounded",system-ui,-apple-system,sans-serif;background:radial-gradient(circle at 50% -20%,#302868 0,transparent 42%),var(--bg);color:var(--text);min-height:100dvh}
+button,input,select{font:inherit}.app{width:min(100%,520px);margin:auto;min-height:100dvh;background:#11141ee6;box-shadow:0 0 80px #0006;position:relative;padding-bottom:94px}.top{position:sticky;top:0;z-index:5;background:#11141eef;backdrop-filter:blur(18px);border-bottom:1px solid var(--line);padding:14px 18px 12px}.brand{display:flex;align-items:center;gap:10px}.logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,var(--purple2),#5143dc);display:grid;place-items:center;font-weight:1000;font-size:22px;box-shadow:0 7px 20px #7667f444}.brand h1{font-size:19px;margin:0;letter-spacing:-.4px}.brand small{display:block;color:var(--muted);margin-top:1px}.iconbtn{margin-left:auto;border:1px solid var(--line);background:var(--panel2);color:white;width:38px;height:38px;border-radius:12px;cursor:pointer}.page{padding:18px}.card{background:linear-gradient(150deg,#202437,#171a27);border:1px solid #343950;border-radius:22px;padding:18px;box-shadow:var(--shadow)}.welcome{padding-top:7vh}.hero-icon{width:76px;height:76px;border-radius:25px;background:linear-gradient(145deg,#8b7cff,#5748dd);display:grid;place-items:center;margin:0 auto 18px;font-size:38px;box-shadow:0 15px 44px #6d5cf45c}.welcome h2{text-align:center;font-size:30px;margin:0 0 8px;letter-spacing:-1.2px}.welcome>p{text-align:center;color:var(--muted);line-height:1.5;margin:0 auto 26px;max-width:360px}.field{margin:14px 0}.field label{font-size:14px;font-weight:750;display:block;margin:0 0 7px;color:#dfe2ef}.input{width:100%;border:1px solid #3a4058;background:#111521;color:white;border-radius:14px;padding:14px 15px;outline:none;min-height:50px}.input:focus{border-color:var(--purple2);box-shadow:0 0 0 3px #7667f422}.cityrow{display:flex;gap:8px}.cityrow .input{flex:1}.searchbtn{border:0;background:var(--purple);color:white;font-weight:800;border-radius:14px;padding:0 16px;cursor:pointer}.results{display:none;margin-top:8px;background:#10131d;border:1px solid var(--line);border-radius:14px;overflow:hidden;max-height:235px;overflow-y:auto}.result{width:100%;border:0;border-bottom:1px solid #292e41;background:transparent;color:white;text-align:left;padding:12px 14px;cursor:pointer;line-height:1.25}.result:last-child{border-bottom:0}.result small{display:block;color:var(--muted);margin-top:3px}.result:hover,.result:focus{background:#262b3e}.hint{color:var(--muted);font-size:13px;margin-top:7px;line-height:1.35}.primary{width:100%;border:0;border-radius:16px;background:linear-gradient(135deg,#8374ff,#5a4ce2);color:white;font-weight:900;padding:16px;cursor:pointer;box-shadow:0 10px 24px #6b59e43d;margin-top:12px}.primary:active,.choice:active,.action:active{transform:scale(.985)}.selected-city{display:none;margin-top:9px;padding:11px 13px;background:#20283b;border:1px solid #3c5577;border-radius:13px;color:#dcecff;font-weight:700}.profile{display:flex;align-items:center;gap:14px}.avatar{width:62px;height:62px;border-radius:20px;background:linear-gradient(145deg,#ffd466,#f28c4b);display:grid;place-items:center;font-size:31px;box-shadow:0 10px 25px #e8933d33}.who{min-width:0}.who h2{font-size:21px;margin:0 0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.who p{color:var(--muted);margin:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.money{margin-left:auto;text-align:right;color:var(--green);font-weight:900}.money small{display:block;color:var(--muted);font-weight:600;font-size:11px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:16px}.stat{background:#121521;border:1px solid #2c3145;border-radius:15px;padding:11px}.stathead{display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px}.bar{height:7px;background:#34384a;border-radius:99px;overflow:hidden}.fill{height:100%;width:50%;border-radius:99px;transition:width .45s}.event{margin-top:15px}.event .age{display:inline-block;background:#2b2f43;color:#c8cce0;border-radius:99px;padding:6px 10px;font-size:12px;font-weight:800}.event h3{font-size:21px;line-height:1.25;margin:14px 0 7px}.event p{margin:0;color:#c7cbd9;line-height:1.5}.choices{display:grid;gap:10px;margin-top:16px}.choice{border:1px solid #3b4058;border-radius:15px;background:#202438;color:white;padding:14px;text-align:left;font-weight:800;cursor:pointer}.choice:hover{border-color:var(--purple2);background:#292e48}.outcome{display:none;margin-top:15px;background:#111521;border-left:4px solid var(--purple2);padding:13px 14px;border-radius:5px 14px 14px 5px;color:#dfe2ef;line-height:1.45}.actions-title{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:900;margin:18px 2px 10px}.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.action{border:1px solid #343950;background:#1c2030;color:white;border-radius:15px;padding:12px 6px;cursor:pointer;font-size:13px;font-weight:800}.action span{font-size:23px;display:block;margin-bottom:5px}.timeline{margin-top:16px}.log{position:relative;padding:0 0 16px 24px;border-left:2px solid #34394f;color:#c9cede;line-height:1.4}.log:before{content:"";width:10px;height:10px;border-radius:50%;background:var(--purple2);position:absolute;left:-6px;top:5px}.log b{color:white}.empty{text-align:center;color:var(--muted);padding:24px}.bottom{position:fixed;z-index:6;bottom:0;width:min(100%,520px);display:grid;grid-template-columns:repeat(3,1fr);background:#141722ee;backdrop-filter:blur(18px);border-top:1px solid var(--line);padding:8px 12px max(9px,env(safe-area-inset-bottom))}.tab{border:0;background:transparent;color:#838a9f;padding:7px;font-size:12px;font-weight:800;cursor:pointer}.tab span{display:block;font-size:21px;margin-bottom:2px}.tab.active{color:var(--purple2)}.toast{position:fixed;z-index:30;left:50%;bottom:96px;transform:translate(-50%,20px);background:#f8f8fd;color:#161823;padding:11px 15px;border-radius:13px;font-weight:800;opacity:0;pointer-events:none;transition:.25s;box-shadow:0 12px 30px #0008;white-space:nowrap}.toast.show{opacity:1;transform:translate(-50%,0)}.modal{position:fixed;z-index:20;inset:0;background:#06070bb8;display:none;place-items:center;padding:20px}.modal.show{display:grid}.modalbox{width:min(100%,430px);background:#1b1e2c;border:1px solid #373c52;border-radius:22px;padding:20px;box-shadow:var(--shadow)}.modalbox h3{margin:0 0 8px}.modalbox p{color:var(--muted);line-height:1.45}.danger{border:1px solid #713344;background:#351b25;color:#ff9baa;border-radius:14px;padding:13px;width:100%;font-weight:800;cursor:pointer}.secondary{border:1px solid var(--line);background:#24283a;color:white;border-radius:14px;padding:13px;width:100%;font-weight:800;cursor:pointer;margin-top:9px}.hidden{display:none!important}@media(min-width:650px){body{padding:22px}.app{min-height:calc(100dvh - 44px);border-radius:28px;overflow:hidden}.bottom{bottom:22px;border-radius:0 0 28px 28px}.top{border-radius:28px 28px 0 0}}@media(max-width:370px){.page{padding:13px}.card{padding:15px}.stats{gap:7px}.actions{gap:6px}.action{font-size:12px}.welcome h2{font-size:26px}}
+</style>
+</head>
+<body>
+<main class="app">
+<header class="top">
+ <div class="brand"><div class="logo">V</div><div><h1>Vida BR</h1><small>Suas escolhas, sua história</small></div><button class="iconbtn" id="settings" aria-label="Configurações">⚙</button></div>
+</header>
+
+<section id="start" class="page welcome">
+ <div class="hero-icon">🌎</div>
+ <h2>Comece uma nova vida</h2>
+ <p>Escolha qualquer cidade do mundo e veja até onde suas decisões levam você.</p>
+ <div class="card">
+  <div class="field"><label for="name">Nome do personagem</label><input id="name" class="input" maxlength="24" placeholder="Ex.: Nicollas" autocomplete="off"></div>
+  <div class="field"><label for="city">Cidade onde vai nascer</label>
+   <div class="cityrow"><input id="city" class="input" placeholder="Digite uma cidade..." autocomplete="off"><button id="citySearch" class="searchbtn">Buscar</button></div>
+   <div id="cityResults" class="results"></div>
+   <div id="selectedCity" class="selected-city"></div>
+   <div class="hint">A busca encontra cidades reais em qualquer país. Se não houver conexão, você ainda pode usar o nome digitado.</div>
+  </div>
+  <div class="field"><label for="talent">Talento inicial</label><select id="talent" class="input"><option value="smart">Aprende rápido</option><option value="social">Faz amizades</option><option value="sport">Gosta de esportes</option><option value="creative">É criativo</option></select></div>
+  <button id="begin" class="primary">Nascer e começar</button>
+ </div>
+</section>
+
+<section id="game" class="page hidden">
+ <div class="card">
+  <div class="profile"><div class="avatar" id="avatar">🙂</div><div class="who"><h2 id="pname">Jogador</h2><p><span id="age">0 anos</span> • <span id="place">Brasil</span></p></div><div class="money"><small>Saldo</small><span id="cash">R$ 0</span></div></div>
+  <div class="stats">
+   <div class="stat"><div class="stathead"><span>😊 Felicidade</span><b id="happyN">80</b></div><div class="bar"><div id="happy" class="fill" style="background:var(--yellow)"></div></div></div>
+   <div class="stat"><div class="stathead"><span>❤️ Saúde</span><b id="healthN">90</b></div><div class="bar"><div id="health" class="fill" style="background:var(--red)"></div></div></div>
+   <div class="stat"><div class="stathead"><span>🧠 Inteligência</span><b id="smartN">60</b></div><div class="bar"><div id="smart" class="fill" style="background:var(--blue)"></div></div></div>
+   <div class="stat"><div class="stathead"><span>🤝 Amizades</span><b id="socialN">55</b></div><div class="bar"><div id="social" class="fill" style="background:var(--green)"></div></div></div>
+  </div>
+ </div>
+ <div id="event" class="card event">
+  <span class="age" id="eventAge">IDADE 0</span><h3 id="eventTitle">Você nasceu!</h3><p id="eventText"></p>
+  <div id="choices" class="choices"></div><div id="outcome" class="outcome"></div>
+  <button id="ageUp" class="primary hidden">+ Envelhecer 1 ano</button>
+ </div>
+ <div class="actions-title">Ações deste ano</div>
+ <div class="actions"><button class="action" data-act="study"><span>📚</span>Estudar</button><button class="action" data-act="play"><span>⚽</span>Jogar</button><button class="action" data-act="family"><span>🏡</span>Família</button></div>
+</section>
+
+<section id="history" class="page hidden"><div class="card"><h2 style="margin-top:0">Minha história</h2><div id="timeline" class="timeline"></div></div></section>
+
+<nav id="nav" class="bottom hidden" aria-label="Navegação">
+ <button class="tab active" data-page="game"><span>🏠</span>Vida</button>
+ <button class="tab" data-page="history"><span>📖</span>História</button>
+ <button class="tab" data-page="start"><span>✨</span>Nova vida</button>
+</nav>
+</main>
+<div id="toast" class="toast"></div>
+<div id="modal" class="modal"><div class="modalbox"><h3>Configurações</h3><p>Seu progresso fica salvo somente neste aparelho.</p><button id="reset" class="danger">Apagar vida salva</button><button id="closeModal" class="secondary">Fechar</button></div></div>
+<script>
+const $=s=>document.querySelector(s), clamp=n=>Math.max(0,Math.min(100,n));
+const money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(n);
+let selected=null, state=null, locked=false;
+
+const events=[
+ {min:1,max:3,title:'Uma tarde curiosa',text:'Você encontra uma caixa cheia de lápis coloridos.',choices:[
+  ['Desenhar uma cidade', {happy:8,smart:3},'Você encheu o papel de prédios e parques.'],
+  ['Guardar tudo organizado',{smart:5,social:-1},'Você deixou cada cor em seu lugar.']]},
+ {min:4,max:6,title:'Primeiro dia de aula',text:'A professora pede que cada aluno escolha uma atividade.',choices:[
+  ['Contar uma história',{smart:6,social:5},'A turma prestou atenção e bateu palmas.'],
+  ['Montar um quebra-cabeça',{smart:9,happy:2},'Você resolveu antes do recreio.'],
+  ['Jogar bola no pátio',{health:5,social:7},'Você conheceu novos colegas.']]},
+ {min:7,max:10,title:'Feira da escola',text:'Sua turma precisa preparar um projeto para a feira.',choices:[
+  ['Criar um vulcão de papel',{smart:8,happy:4},'O projeto ficou chamativo e divertido.'],
+  ['Apresentar o trabalho',{social:9,smart:3},'Você explicou tudo com confiança.'],
+  ['Ajudar toda a equipe',{social:7,happy:6},'O grupo trabalhou muito bem junto.']]},
+ {min:11,max:13,title:'Um novo desafio',text:'Você pode entrar em uma atividade depois da aula.',choices:[
+  ['Futebol',{health:9,social:5,happy:4},'Seu time treinou bastante.'],
+  ['Robótica',{smart:11,social:2},'Você aprendeu a montar seu primeiro robô.'],
+  ['Desenho e animação',{smart:5,happy:9},'Você criou um personagem original.']]},
+ {min:14,max:17,title:'Trabalho da turma',text:'Um projeto importante vale muitos pontos.',choices:[
+  ['Começar cedo',{smart:10,happy:-2},'Você entregou um ótimo projeto sem correria.'],
+  ['Fazer com amigos',{social:9,smart:5},'O grupo dividiu bem as tarefas.'],
+  ['Improvisar no último dia',{happy:2,smart:-6},'Deu para entregar, mas poderia ter ficado melhor.']]},
+ {min:18,max:22,title:'Hora de escolher um caminho',text:'A vida adulta está começando. Qual será seu foco?',choices:[
+  ['Fazer faculdade',{smart:12,cash:-1500,happy:-2,career:'Universitário'},'Você iniciou um curso e ganhou novos objetivos.'],
+  ['Curso técnico',{smart:8,cash:-500,career:'Aprendiz técnico'},'Você começou a aprender uma profissão prática.'],
+  ['Procurar emprego',{cash:1800,social:3,career:'Assistente'},'Você conseguiu seu primeiro trabalho.']]},
+ {min:23,max:29,title:'Uma oportunidade aparece',text:'Você pode assumir um novo projeto que exige dedicação.',choices:[
+  ['Aceitar o desafio',{cash:3500,smart:6,happy:-3,career:'Profissional em crescimento'},'O esforço aumentou sua experiência e seu salário.'],
+  ['Criar um projeto próprio',{cash:1800,smart:5,happy:8,career:'Criador independente'},'Seu projeto começou pequeno, mas chamou atenção.'],
+  ['Manter a rotina',{health:4,happy:5},'Você preservou seu tempo e sua tranquilidade.']]},
+ {min:30,max:44,title:'Decisão importante',text:'Você recebeu propostas diferentes para os próximos anos.',choices:[
+  ['Liderar uma equipe',{cash:6500,social:7,happy:-2,career:'Líder de equipe'},'Você passou a liderar projetos maiores.'],
+  ['Estudar uma nova área',{cash:-1200,smart:10,happy:4},'Novos conhecimentos abriram possibilidades.'],
+  ['Ter mais tempo livre',{health:7,happy:10,cash:-1000},'Você aproveitou melhor os dias.']]},
+ {min:45,max:64,title:'Um convite da comunidade',text:'Moradores querem melhorar o bairro.',choices:[
+  ['Ajudar no projeto',{social:10,happy:8},'A praça ficou mais bonita e movimentada.'],
+  ['Ensinar o que sabe',{smart:5,social:8,happy:5},'Muita gente aprendeu com sua experiência.'],
+  ['Fazer uma doação',{cash:-2500,happy:7,social:5},'A ajuda apoiou atividades para crianças.']]},
+ {min:65,max:120,title:'Um dia para lembrar',text:'Você pode escolher como aproveitar esta fase da vida.',choices:[
+  ['Reunir a família',{happy:10,social:8},'Foi um dia cheio de boas conversas.'],
+  ['Conhecer um lugar novo',{cash:-1800,happy:12,health:3},'A viagem virou uma lembrança especial.'],
+  ['Escrever suas memórias',{smart:5,happy:7},'Você registrou muitas histórias da sua jornada.']]}
+];
+
+const extra=[
+ ['Um talento inesperado','Você percebe que ficou muito bom em uma atividade.',['Praticar mais',{smart:5,happy:6},'A prática trouxe ótimos resultados.'],['Mostrar aos amigos',{social:6,happy:5},'Seus amigos incentivaram você.']],
+ ['Uma manhã livre','O dia está bonito e você não tem compromissos.',['Passear no parque',{health:5,happy:7},'O passeio renovou suas energias.'],['Ler um livro',{smart:7,happy:3},'A história trouxe novas ideias.']],
+ ['Evento na sua cidade','Uma atividade cultural está acontecendo perto de você.',['Participar',{happy:7,social:6,cash:-100},'Você conheceu pessoas e coisas novas.'],['Ajudar na organização',{social:8,smart:3},'Sua ajuda fez diferença no evento.']]
+];
+
+function initial(name,city,talent){
+ let s={name,city,age:0,cash:0,happy:78,health:90,smart:58,social:55,career:'Criança',history:[],usedActions:[],lastEvent:-1};
+ if(talent==='smart')s.smart+=13;if(talent==='social')s.social+=13;if(talent==='sport')s.health+=10;if(talent==='creative')s.happy+=10;
+ s.history.push({age:0,text:name+' nasceu em '+city+'.'});return s;
+}
+function save(){localStorage.setItem('vidaBRsave',JSON.stringify(state))}
+function load(){try{return JSON.parse(localStorage.getItem('vidaBRsave'))}catch(e){return null}}
+function toast(t){$('#toast').textContent=t;$('#toast').classList.add('show');setTimeout(()=>$('#toast').classList.remove('show'),1800)}
+function change(d){for(const k of ['happy','health','smart','social'])if(d[k])state[k]=clamp(state[k]+d[k]);if(d.cash)state.cash+=d.cash;if(d.career)state.career=d.career}
+function render(){
+ $('#pname').textContent=state.name;$('#age').textContent=state.age+' '+(state.age===1?'ano':'anos');$('#place').textContent=state.city;$('#cash').textContent=money(state.cash);
+ for(const k of ['happy','health','smart','social']){$('#'+k).style.width=state[k]+'%';$('#'+k+'N').textContent=state[k]}
+ $('#avatar').textContent=state.age<5?'👶':state.age<13?'🧒':state.age<18?'🧑':state.age<60?'🙂':'🧓';
+ document.querySelectorAll('.action').forEach(b=>b.disabled=state.usedActions.includes(b.dataset.act));
+ renderHistory();save();
+}
+function renderHistory(){
+ const box=$('#timeline'); if(!state?.history?.length){box.innerHTML='<div class="empty">Sua história aparecerá aqui.</div>';return}
+ box.innerHTML=[...state.history].reverse().map(x=>'<div class="log"><b>'+x.age+' '+(x.age===1?'ano':'anos')+'</b><br>'+escapeHTML(x.text)+'</div>').join('');
+}
+function escapeHTML(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+function chooseEvent(){
+ const pool=events.filter(e=>state.age>=e.min&&state.age<=e.max);
+ let e=pool[Math.floor(Math.random()*pool.length)];
+ if(Math.random()<.27&&state.age>4){const x=extra[Math.floor(Math.random()*extra.length)];e={title:x[0],text:x[1],choices:[x[2],x[3]]}}
+ showEvent(e);
+}
+function showEvent(e){
+ locked=true;$('#eventAge').textContent='IDADE '+state.age;$('#eventTitle').textContent=e.title;$('#eventText').textContent=e.text;$('#outcome').style.display='none';$('#ageUp').classList.add('hidden');
+ const c=$('#choices');c.innerHTML='';
+ e.choices.forEach(ch=>{const b=document.createElement('button');b.className='choice';b.textContent=ch[0];b.onclick=()=>resolve(ch);c.appendChild(b)});
+}
+function resolve(ch){
+ if(!locked)return;locked=false;change(ch[1]);state.history.push({age:state.age,text:ch[2]});$('#choices').innerHTML='';$('#outcome').textContent=ch[2];$('#outcome').style.display='block';$('#ageUp').classList.remove('hidden');render();
+}
+function birthEvent(){
+ locked=false;$('#eventAge').textContent='IDADE 0';$('#eventTitle').textContent='Você nasceu!';$('#eventText').textContent=state.name+' nasceu em '+state.city+'. Uma história inteira começa agora.';$('#choices').innerHTML='';$('#outcome').style.display='none';$('#ageUp').classList.remove('hidden');
+}
+async function searchCity(){
+ const q=$('#city').value.trim();if(q.length<2){toast('Digite pelo menos 2 letras');return}
+ const box=$('#cityResults');box.style.display='block';box.innerHTML='<div class="result">Buscando cidades...</div>';$('#citySearch').disabled=true;
+ try{
+  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=12&featuretype=city&accept-language=pt-BR&q='+encodeURIComponent(q);
+  const res=await fetch(url);if(!res.ok)throw Error();const rows=await res.json();
+  const unique=[];const seen=new Set();
+  rows.forEach(r=>{const a=r.address||{};const city=a.city||a.town||a.village||a.municipality||a.county||r.name;const country=a.country||'';const region=a.state||a.region||'';if(city){const key=(city+'|'+region+'|'+country).toLowerCase();if(!seen.has(key)){seen.add(key);unique.push({city,country,region,label:[city,region,country].filter(Boolean).join(', ')})}}});
+  if(!unique.length){box.innerHTML='<button class="result" id="manualCity">Usar “'+escapeHTML(q)+'”<small>Não encontramos resultados. Você pode continuar com este nome.</small></button>';$('#manualCity').onclick=()=>selectCity({label:q});}
+  else{box.innerHTML='';unique.forEach(x=>{const b=document.createElement('button');b.className='result';b.innerHTML='<b>'+escapeHTML(x.city)+'</b><small>'+escapeHTML([x.region,x.country].filter(Boolean).join(', '))+'</small>';b.onclick=()=>selectCity(x);box.appendChild(b)})}
+ }catch(e){box.innerHTML='<button class="result" id="manualCity">Usar “'+escapeHTML(q)+'”<small>A busca está sem conexão, mas você pode continuar.</small></button>';$('#manualCity').onclick=()=>selectCity({label:q})}
+ finally{$('#citySearch').disabled=false}
+}
+function selectCity(x){selected=x;$('#selectedCity').textContent='📍 '+x.label;$('#selectedCity').style.display='block';$('#cityResults').style.display='none';$('#city').value=x.label}
+function page(id){
+ ['start','game','history'].forEach(x=>$('#'+x).classList.toggle('hidden',x!==id));
+ document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.page===id));
+ if(id==='start'&&state){$('#name').value='';$('#city').value='';selected=null;$('#selectedCity').style.display='none'}
+ window.scrollTo({top:0,behavior:'smooth'});
+}
+$('#citySearch').onclick=searchCity;$('#city').addEventListener('keydown',e=>{if(e.key==='Enter')searchCity()});
+$('#begin').onclick=()=>{
+ const name=$('#name').value.trim()||'Nicollas';const typed=$('#city').value.trim();const city=selected?.label||typed;
+ if(!city){toast('Escolha uma cidade');return}
+ state=initial(name,city,$('#talent').value);birthEvent();render();$('#nav').classList.remove('hidden');page('game');toast('Nova vida começada!');
+};
+$('#ageUp').onclick=()=>{
+ if(locked)return;state.age++;state.usedActions=[];state.health=clamp(state.health-(state.age>55?2:Math.random()<.25?1:0));state.happy=clamp(state.happy-1);
+ if(state.age>=18&&state.career!=='Criança'&&state.career!=='Universitário')state.cash+=Math.max(600,Math.round(900+state.smart*18+state.social*9));
+ if(state.age===6)state.career='Estudante';if(state.age===18&&state.career==='Estudante')state.career='Formado no ensino médio';
+ chooseEvent();render();
+};
+document.querySelectorAll('.action').forEach(b=>b.onclick=()=>{
+ if(state.usedActions.includes(b.dataset.act))return;
+ const acts={study:[{smart:4,happy:-1},'Você estudou e aprendeu algo novo.'],play:[{health:3,happy:5,social:2},'Você se divertiu e se movimentou.'],family:[{happy:5,social:4},'Você passou um bom tempo com sua família.']};
+ const [d,msg]=acts[b.dataset.act];change(d);state.usedActions.push(b.dataset.act);state.history.push({age:state.age,text:msg});render();toast(msg);
+});
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+ if(t.dataset.page==='start'&&state){if(confirm('Começar outra vida? Seu progresso atual só será apagado quando você criar a nova.'))page('start')}else page(t.dataset.page)
+});
+$('#settings').onclick=()=>$('#modal').classList.add('show');$('#closeModal').onclick=()=>$('#modal').classList.remove('show');
+$('#reset').onclick=()=>{localStorage.removeItem('vidaBRsave');state=null;$('#modal').classList.remove('show');$('#nav').classList.add('hidden');page('start');toast('Vida salva apagada')};
+const old=load();if(old){state=old;$('#nav').classList.remove('hidden');render();page('game');birthEvent();$('#eventTitle').textContent='Bem-vindo de volta!';$('#eventText').textContent='Sua vida foi carregada. Continue de onde parou.'}
+</script>
+</body>
+</html>
