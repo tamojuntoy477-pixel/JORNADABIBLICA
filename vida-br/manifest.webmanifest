@@ -1,0 +1,19 @@
+{
+  "name": "Vida BR — Jogo de Escolhas",
+  "short_name": "Vida BR",
+  "description": "Jogo brasileiro de escolhas de vida com cidades do mundo.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1119",
+  "theme_color": "#7667f4",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
