@@ -1,7 +1,7 @@
-name: Build Phone Empire v3 APK
+name: Build Phone Empire 3D APK
 on:
   push:
-    branches: ["phone-empire-v3"]
+    branches: ["phone-empire-v4-3d"]
   workflow_dispatch:
 
 jobs:
@@ -27,8 +27,8 @@ jobs:
         working-directory: phoneempire
         run: gradle :app:assembleDebug --stacktrace
       - name: Rename APK
-        run: cp phoneempire/app/build/outputs/apk/debug/app-debug.apk PhoneEmpire-v3.apk
+        run: cp phoneempire/app/build/outputs/apk/debug/app-debug.apk PhoneEmpire-3D.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: PhoneEmpire-v3-APK
-          path: PhoneEmpire-v3.apk
+          name: PhoneEmpire-3D-APK
+          path: PhoneEmpire-3D.apk
