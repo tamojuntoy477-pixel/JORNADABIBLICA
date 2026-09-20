@@ -1,4 +1,5 @@
 name: Build Phone Empire 3D APK
+# rebuild after OpenGL fix
 on:
   push:
     branches: ["phone-empire-v4-3d"]
