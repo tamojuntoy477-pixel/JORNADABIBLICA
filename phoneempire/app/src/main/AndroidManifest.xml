@@ -4,6 +4,7 @@
         android:label="Phone Empire"
         android:theme="@style/AppTheme"
         android:icon="@drawable/app_icon">
+        <activity android:name=".Phone3DActivity" android:screenOrientation="portrait" android:exported="false" />
         <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
