@@ -105,6 +105,7 @@ public class MainActivity extends Activity {
 
         TextView sec=tv("Decisões",20,true,TEXT); sec.setPadding(0,dp(8),0,dp(5)); root.addView(sec);
         Button create=action("📱  Projetar e lançar celular",ACCENT); create.setOnClickListener(v->openPhoneDesigner()); root.addView(create);
+        Button showroom=action("🧊  Showroom 3D",Color.rgb(190,72,210)); showroom.setOnClickListener(v->startActivity(new android.content.Intent(this,Phone3DActivity.class))); root.addView(showroom);
         Button companyBtn=action("🏢  Gerenciar empresa",GREEN); companyBtn.setOnClickListener(v->openCompanyMenu()); root.addView(companyBtn);
         Button marketBtn=action("📊  Mercado e concorrentes",BLUE); marketBtn.setOnClickListener(v->openMarket()); root.addView(marketBtn);
         Button next=action("⏩  Avançar 1 mês",PANEL2); next.setOnClickListener(v->advanceMonth()); root.addView(next);
@@ -132,6 +133,10 @@ public class MainActivity extends Activity {
         Spinner display=spinner("Tela",new String[]{"LCD 60 Hz","OLED 90 Hz","OLED 120 Hz","LTPO 144 Hz"},box);
         Spinner ram=spinner("RAM",new String[]{"4 GB","6 GB","8 GB","12 GB"},box);
         Spinner storage=spinner("Armazenamento",new String[]{"64 GB","128 GB","256 GB","512 GB"},box);
+
+        Button preview3d=action("🧊  Ver protótipo em 3D",Color.rgb(190,72,210));
+        preview3d.setOnClickListener(v->startActivity(new android.content.Intent(this,Phone3DActivity.class)));
+        box.addView(preview3d);
 
         TextView priceLabel=tv("Preço: R$ 1.499",15,true,Color.DKGRAY); priceLabel.setPadding(0,dp(12),0,0); box.addView(priceLabel);
         SeekBar price=new SeekBar(this); price.setMax(5500); price.setProgress(999); box.addView(price);
