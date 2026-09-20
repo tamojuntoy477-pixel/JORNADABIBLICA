@@ -71,7 +71,7 @@ public class Phone3DView extends GLSurfaceView {
 
         void setBodyColor(float r,float g,float b){bodyR=r;bodyG=g;bodyB=b;}
 
-        @Override public void onSurfaceCreated(javax.microedition.khronos.egl.EGLConfig config){
+        @Override public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl, javax.microedition.khronos.egl.EGLConfig config){
             GLES20.glClearColor(0.027f,0.039f,0.063f,1f);
             GLES20.glEnable(GLES20.GL_DEPTH_TEST);
             String vs="uniform mat4 uMVP; attribute vec4 aPos; void main(){ gl_Position=uMVP*aPos; }";
